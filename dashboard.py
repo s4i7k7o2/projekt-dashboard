@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
 
 st.set_page_config(page_title="GRA Reporting", layout="wide")
 
@@ -11,44 +12,99 @@ def parse_input_data(input_str):
         st.error("Fehler beim Parsen der Daten. Bitte Komma-separierte Zahlen eingeben.")
         return []
 
+# Funktion für ein interaktives CFD Diagramm (als Linien-Chart mit Markern)
+def plot_cfd(data, title="CFD Diagramm"):
+    df = pd.DataFrame({'Index': range(len(data)), 'Wert': data})
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df['Index'], y=df['Wert'],
+                             mode='lines+markers',
+                             marker=dict(size=8),
+                             line=dict(width=2),
+                             name="CFD"))
+    fig.update_layout(title=title,
+                      xaxis_title='Index',
+                      yaxis_title='Wert',
+                      template="plotly_white")
+    return fig
+
+# Funktion für ein interaktives BDC Diagramm (Burndown)
+def plot_bdc(data, title="BDC Diagramm"):
+    df = pd.DataFrame({'Index': range(len(data)), 'Wert': data})
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df['Index'], y=df['Wert'],
+                             mode='lines+markers',
+                             marker=dict(size=8),
+                             line=dict(width=2),
+                             name="BDC"))
+    fig.update_layout(title=title,
+                      xaxis_title='Index',
+                      yaxis_title='Wert',
+                      template="plotly_white")
+    return fig
+
+# Funktion für ein interaktives BUC Diagramm (Burnup)
+def plot_buc(data, title="BUC Diagramm"):
+    df = pd.DataFrame({'Index': range(len(data)), 'Wert': data})
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df['Index'], y=df['Wert'],
+                             mode='lines+markers',
+                             marker=dict(size=8),
+                             line=dict(width=2),
+                             name="BUC"))
+    fig.update_layout(title=title,
+                      xaxis_title='Index',
+                      yaxis_title='Wert',
+                      template="plotly_white")
+    return fig
+
+# Funktion für das EAC Diagramm
+def plot_eac(data, title="EAC Diagramm"):
+    df = pd.DataFrame({'Index': range(len(data)), 'Wert': data})
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(x=df['Index'], y=df['Wert'],
+                             mode='lines+markers',
+                             marker=dict(size=8),
+                             line=dict(width=2),
+                             name="EAC"))
+    fig.update_layout(title=title,
+                      xaxis_title='Index',
+                      yaxis_title='Wert',
+                      template="plotly_white")
+    return fig
+
 # Funktion, die in einem Tab die Eingabefelder und Diagramme (CFD, BDC, BUC) anzeigt.
 def render_department_tab(department_name, prefix):
     st.header(department_name)
-    # Wir nutzen zwei Spalten, um links (simulierte Sidebar) die Dateneingabe und rechts die Diagramme anzuzeigen.
     col_sidebar, col_charts = st.columns([1, 3])
     
     with col_sidebar:
         st.subheader("Daten eingeben")
-        # Textfelder zur Eingabe der Daten (als Komma-separierte Zahlen)
         cfd_input = st.text_area("CFD Daten (z. B. 1,2,3,4,5)", key=f"{prefix}_cfd", value="1,2,3,4,5")
         bdc_input = st.text_area("BDC Daten (z. B. 5,4,3,2,1)", key=f"{prefix}_bdc", value="5,4,3,2,1")
         buc_input = st.text_area("BUC Daten (z. B. 1,2,3,4,5)", key=f"{prefix}_buc", value="1,2,3,4,5")
     
     with col_charts:
-        # CFD Diagramm
         st.subheader("CFD Diagramm")
         cfd_data = parse_input_data(cfd_input)
         if cfd_data:
-            df_cfd = pd.DataFrame({"Index": range(len(cfd_data)), "CFD": cfd_data})
-            st.line_chart(df_cfd.set_index("Index"))
+            fig = plot_cfd(cfd_data)
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine gültigen CFD-Daten vorhanden.")
             
-        # BDC Diagramm
         st.subheader("BDC Diagramm")
         bdc_data = parse_input_data(bdc_input)
         if bdc_data:
-            df_bdc = pd.DataFrame({"Index": range(len(bdc_data)), "BDC": bdc_data})
-            st.line_chart(df_bdc.set_index("Index"))
+            fig = plot_bdc(bdc_data)
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine gültigen BDC-Daten vorhanden.")
             
-        # BUC Diagramm
         st.subheader("BUC Diagramm")
         buc_data = parse_input_data(buc_input)
         if buc_data:
-            df_buc = pd.DataFrame({"Index": range(len(buc_data)), "BUC": buc_data})
-            st.line_chart(df_buc.set_index("Index"))
+            fig = plot_buc(buc_data)
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine gültigen BUC-Daten vorhanden.")
             
@@ -64,18 +120,16 @@ def render_overall_tab():
     
     with col_sidebar:
         st.subheader("Daten eingeben")
-        # Hier können zusätzlich EAC-Daten eingegeben werden – diese werden nur im Overall-Tab angezeigt.
         eac_input = st.text_area("EAC Daten (z. B. 10,9,8,7,6)", key="overall_eac", value="10,9,8,7,6")
         st.write("Aggregierte Daten aus Governance, Risk und Audit & Assessment werden automatisch berechnet.")
     
     with col_charts:
         aggregated_data = {}
-        # Für die Diagrammtypen CFD, BDC, BUC werden die Daten aus den drei Unterabteilungen (sofern vorhanden) aggregiert.
+        # Aggregation für CFD, BDC und BUC aus den drei Unterabteilungen
         for chart in ["cfd", "bdc", "buc"]:
             data_list = []
             for dept in ["governance", "risk", "audit"]:
                 key = f"{dept}_{chart}"
-                # Prüfen, ob der jeweilige Schlüssel bereits in st.session_state vorhanden ist
                 if key in st.session_state:
                     input_str = st.session_state[key]
                 else:
@@ -84,7 +138,6 @@ def render_overall_tab():
                 parsed = parse_input_data(input_str)
                 if parsed:
                     data_list.append(parsed)
-            # Aggregation: Elementweise Summe (sofern alle Listen mindestens die gleiche Länge haben)
             if data_list:
                 min_len = min(len(lst) for lst in data_list)
                 trimmed = [lst[:min_len] for lst in data_list]
@@ -93,34 +146,32 @@ def render_overall_tab():
                 aggregated = []
             aggregated_data[chart] = aggregated
         
-        # Anzeigen der aggregierten Diagramme
         st.subheader("Aggregiertes CFD Diagramm")
         if aggregated_data["cfd"]:
-            df_cfd = pd.DataFrame({"Index": range(len(aggregated_data["cfd"])), "CFD": aggregated_data["cfd"]})
-            st.line_chart(df_cfd.set_index("Index"))
+            fig = plot_cfd(aggregated_data["cfd"], title="Aggregiertes CFD Diagramm")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine aggregierten CFD-Daten vorhanden.")
         
         st.subheader("Aggregiertes BDC Diagramm")
         if aggregated_data["bdc"]:
-            df_bdc = pd.DataFrame({"Index": range(len(aggregated_data["bdc"])), "BDC": aggregated_data["bdc"]})
-            st.line_chart(df_bdc.set_index("Index"))
+            fig = plot_bdc(aggregated_data["bdc"], title="Aggregiertes BDC Diagramm")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine aggregierten BDC-Daten vorhanden.")
             
         st.subheader("Aggregiertes BUC Diagramm")
         if aggregated_data["buc"]:
-            df_buc = pd.DataFrame({"Index": range(len(aggregated_data["buc"])), "BUC": aggregated_data["buc"]})
-            st.line_chart(df_buc.set_index("Index"))
+            fig = plot_buc(aggregated_data["buc"], title="Aggregiertes BUC Diagramm")
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine aggregierten BUC-Daten vorhanden.")
         
-        # EAC Diagramm (nur im Overall-Tab)
         st.subheader("EAC Diagramm")
         eac_data = parse_input_data(eac_input)
         if eac_data:
-            df_eac = pd.DataFrame({"Index": range(len(eac_data)), "EAC": eac_data})
-            st.line_chart(df_eac.set_index("Index"))
+            fig = plot_eac(eac_data)
+            st.plotly_chart(fig, use_container_width=True)
         else:
             st.info("Keine gültigen EAC-Daten vorhanden.")
         
