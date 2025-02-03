@@ -37,11 +37,6 @@ if "qam_value" not in st.session_state:
 if "qam_ref" not in st.session_state:
     st.session_state.qam_ref = 100
 
-# Wir definieren auch Session Keys für die Diagrammdaten (falls in Tab 2 editiert)
-for key in ["chart_cfd", "chart_bdc", "chart_buc", "chart_eac"]:
-    if key not in st.session_state:
-        st.session_state[key] = None
-
 # Erstelle zwei Tabs: "Dashboard" und "Data Editor"
 tabs = st.tabs(["Dashboard", "Data Editor"])
 
@@ -75,15 +70,15 @@ with tabs[0]:
     Indicator of field progress versus planned progress. Green means on or ahead of schedule; yellow indicates potential delays; red signals significant delays requiring corrective action.
     
     **Cost Contingency Performance Metric (CCPM)**  
-    Uses the Forecast Cost from the EAC-Daten and the current (letzte) Actual Cost.
+    Compares the actual costs to the forecast costs. Hierbei werden die Forecast-Kosten aus der EAC-Tabelle und der aktuelle (letzte) Actual Cost zugrunde gelegt.
     
     **Safety Performance Metric (SPM)**  
-    Compares project safety performance to the industry national average.
+    Compares project safety performance to the industry national average, typically based on OSHA’s Incident Rate (IR).
     
     **Quality Assurance Metric (QAM)**  
-    Assesses the contractor’s quality control program.
+    Assesses the contractor’s quality control program, often by comparing non-conformance notices or other quality indicators.
     """)
-
+    
     # ----------------------
     # Performance Metrics Gauges (aus Session State)
     # ----------------------
@@ -111,7 +106,7 @@ with tabs[0]:
             }
         }
     ))
-
+    
     # CCPM Gauge
     fig_cost = go.Figure(go.Indicator(
         mode="gauge+number+delta",
@@ -133,7 +128,7 @@ with tabs[0]:
             }
         }
     ))
-
+    
     # Safety SPM Gauge
     fig_safety = go.Figure(go.Indicator(
         mode="gauge+number+delta",
@@ -155,7 +150,7 @@ with tabs[0]:
             }
         }
     ))
-
+    
     # QAM Gauge
     fig_quality = go.Figure(go.Indicator(
         mode="gauge+number+delta",
@@ -177,7 +172,7 @@ with tabs[0]:
             }
         }
     ))
-
+    
     col1, col2 = st.columns(2)
     with col1:
         st.plotly_chart(fig_schedule, use_container_width=True)
@@ -187,47 +182,56 @@ with tabs[0]:
         st.plotly_chart(fig_quality, use_container_width=True)
     
     # ----------------------
-    # Additional Diagrams (verwenden Daten aus Session State, falls vorhanden)
+    # Additional Diagrams (CFD, BDC, BUC, EAC)
     # ----------------------
     st.header("Additional Diagrams")
     
-    # Für jedes Diagramm prüfen wir, ob in st.session_state die bearbeiteten Daten vorhanden sind.
-    # Andernfalls nutzen wir simulierte Beispieldaten.
+    # Kurze Beschreibungen zu den Diagrammen:
+    st.markdown("""
+    **CFD (Cumulative Flow Diagram):**  
+    Zeigt den kumulierten Arbeitsfortschritt in verschiedenen Phasen (z. B. Backlog, In Progress, Done) über die Zeit. Hilfreich in agilen Umgebungen, um Blockaden zu identifizieren.
     
-    # CFD
-    if st.session_state.chart_cfd is not None:
-        df_cfd = st.session_state.chart_cfd.copy()
-    else:
-        days = pd.date_range(start="2025-01-01", periods=20).strftime('%d.%m.%Y')
-        backlog = np.random.randint(50, 100, size=20)
-        in_progress = np.random.randint(20, 70, size=20)
-        done = np.random.randint(10, 50, size=20)
-        df_cfd = pd.DataFrame({
-            "Date": days,
-            "Backlog": backlog,
-            "In Progress": in_progress,
-            "Done": done
-        })
-    # Konvertiere Datumsspalte
+    **BDC (Burndown Chart):**  
+    Zeigt den verbleibenden Arbeitsaufwand innerhalb eines Sprints oder einer Iteration, verglichen mit einer idealen Linie. Unterstützt die Überwachung des Fortschritts im Zeitverlauf.
+    
+    **BUC (Burnup Chart):**  
+    Visualisiert sowohl den Fortschritt als auch den sich ändernden Umfang eines Projekts. Besonders nützlich bei häufigen Scope-Änderungen.
+    
+    **EAC (Estimate at Completion):**  
+    Schätzt die Gesamtkosten eines Projekts basierend auf den bisherigen Ausgaben und prognostizierten Kosten. Dient als Grundlage für die Berechnung des CCPM.
+    """)
+    
+    # CFD Diagramm
+    st.subheader("CFD (Cumulative Flow Diagram)")
+    days = pd.date_range(start="2025-01-01", periods=20).strftime('%d.%m.%Y')
+    backlog = np.random.randint(50, 100, size=20)
+    in_progress = np.random.randint(20, 70, size=20)
+    done = np.random.randint(10, 50, size=20)
+    df_cfd = pd.DataFrame({
+        "Date": days,
+        "Backlog": backlog,
+        "In Progress": in_progress,
+        "Done": done
+    })
+    # Umwandeln in datetime für Plotly, dabei nur Datum (keine Uhrzeit)
     df_cfd["Date"] = pd.to_datetime(df_cfd["Date"], format='%d.%m.%Y', dayfirst=True)
     df_cfd_plot = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
                               var_name="Stage", value_name="Count")
     fig_cfd = px.area(df_cfd_plot, x="Date", y="Count", color="Stage",
                       title="Cumulative Flow Diagram")
+    fig_cfd.update_xaxes(tickformat="%d.%m.%Y")  # Nur Datum anzeigen
     st.plotly_chart(fig_cfd, use_container_width=True)
     
-    # BDC
-    if st.session_state.chart_bdc is not None:
-        df_bdc = st.session_state.chart_bdc.copy()
-    else:
-        days = pd.date_range(start="2025-02-01", periods=15).strftime('%d.%m.%Y')
-        ideal = np.linspace(100, 0, 15)
-        actual = ideal + np.random.normal(0, 5, 15)
-        df_bdc = pd.DataFrame({
-            "Date": days,
-            "Ideal": ideal,
-            "Actual": actual
-        })
+    # BDC Diagramm
+    st.subheader("BDC (Burndown Chart)")
+    days = pd.date_range(start="2025-02-01", periods=15).strftime('%d.%m.%Y')
+    ideal = np.linspace(100, 0, 15)
+    actual = ideal + np.random.normal(0, 5, 15)
+    df_bdc = pd.DataFrame({
+        "Date": days,
+        "Ideal": ideal,
+        "Actual": actual
+    })
     df_bdc["Date"] = pd.to_datetime(df_bdc["Date"], format='%d.%m.%Y', dayfirst=True)
     fig_bdc = go.Figure()
     fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
@@ -240,21 +244,20 @@ with tabs[0]:
                                  line=dict(color='red')))
     fig_bdc.update_layout(title="Burndown Chart (BDC)",
                           xaxis_title="Date",
-                          yaxis_title="Work Remaining (%)")
+                          yaxis_title="Work Remaining (%)",
+                          xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_bdc, use_container_width=True)
     
-    # BUC
-    if st.session_state.chart_buc is not None:
-        df_buc = st.session_state.chart_buc.copy()
-    else:
-        days = pd.date_range(start="2025-03-01", periods=15).strftime('%d.%m.%Y')
-        total_scope = np.linspace(100, 130, 15)
-        completed = np.linspace(0, 100, 15) + np.random.normal(0, 5, 15)
-        df_buc = pd.DataFrame({
-            "Date": days,
-            "Total Scope": total_scope,
-            "Completed": completed
-        })
+    # BUC Diagramm
+    st.subheader("BUC (Burnup Chart)")
+    days = pd.date_range(start="2025-03-01", periods=15).strftime('%d.%m.%Y')
+    total_scope = np.linspace(100, 130, 15)
+    completed = np.linspace(0, 100, 15) + np.random.normal(0, 5, 15)
+    df_buc = pd.DataFrame({
+        "Date": days,
+        "Total Scope": total_scope,
+        "Completed": completed
+    })
     df_buc["Date"] = pd.to_datetime(df_buc["Date"], format='%d.%m.%Y', dayfirst=True)
     fig_buc = go.Figure()
     fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
@@ -267,21 +270,20 @@ with tabs[0]:
                                  line=dict(color='orange')))
     fig_buc.update_layout(title="Burnup Chart (BUC)",
                           xaxis_title="Date",
-                          yaxis_title="Work Units")
+                          yaxis_title="Work Units",
+                          xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
     
-    # EAC
-    if st.session_state.chart_eac is not None:
-        df_eac = st.session_state.chart_eac.copy()
-    else:
-        days = pd.date_range(start="2025-04-01", periods=15).strftime('%d.%m.%Y')
-        actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
-        forecast = actual_costs[-1] + np.linspace(0, 20000, 15)
-        df_eac = pd.DataFrame({
-            "Date": days,
-            "Actual Cost": actual_costs,
-            "Forecast Cost": forecast
-        })
+    # EAC Diagramm
+    st.subheader("EAC (Estimate at Completion)")
+    days = pd.date_range(start="2025-04-01", periods=15).strftime('%d.%m.%Y')
+    actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
+    forecast = actual_costs[-1] + np.linspace(0, 20000, 15)
+    df_eac = pd.DataFrame({
+        "Date": days,
+        "Actual Cost": actual_costs,
+        "Forecast Cost": forecast
+    })
     df_eac["Date"] = pd.to_datetime(df_eac["Date"], format='%d.%m.%Y', dayfirst=True)
     fig_eac = go.Figure()
     fig_eac.add_trace(go.Scatter(x=df_eac["Date"], y=df_eac["Actual Cost"],
@@ -294,14 +296,15 @@ with tabs[0]:
                                  line=dict(dash='dash', color='gray')))
     fig_eac.update_layout(title="Estimate at Completion (EAC)",
                           xaxis_title="Date",
-                          yaxis_title="Cost (€)")
+                          yaxis_title="Cost (€)",
+                          xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_eac, use_container_width=True)
     
     st.header("Conclusion")
     st.markdown("""
     In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. Die zusätzlichen Charts und Gauges aktualisieren sich basierend auf den in Tab 2 eingegebenen Daten.
     """)
-
+    
 # ===========================
 # TAB 2: DATA EDITOR
 # ===========================
@@ -329,8 +332,6 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Fehler beim Parsen: {e}")
             edited_cfd = sample_cfd
-    # Speichere die bearbeiteten Daten in Session State
-    st.session_state.chart_cfd = edited_cfd
 
     # BDC Data Editor
     st.subheader("BDC Data (Burndown Chart)")
@@ -350,7 +351,6 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Fehler beim Parsen: {e}")
             edited_bdc = sample_bdc
-    st.session_state.chart_bdc = edited_bdc
 
     # BUC Data Editor
     st.subheader("BUC Data (Burnup Chart)")
@@ -370,7 +370,6 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Fehler beim Parsen: {e}")
             edited_buc = sample_buc
-    st.session_state.chart_buc = edited_buc
 
     # EAC Data Editor
     st.subheader("EAC Data (Estimate at Completion)")
@@ -390,7 +389,6 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Fehler beim Parsen: {e}")
             edited_eac = sample_eac
-    st.session_state.chart_eac = edited_eac
 
     st.header("Interaktive Kennzahlen-Editoren")
     # Interaktiver SPM Editor (Planned Progress und Actual Progress)
@@ -415,6 +413,8 @@ with tabs[1]:
         st.session_state.spm_value = round(computed_spm, 2)
         st.session_state.spm_ref = 100
         st.write(f"Berechnetes SPM: {st.session_state.spm_value:.2f} %")
+    
+    # Hinweis: Interaktiver CCPM Editor entfällt, da CCPM aus den EAC-Daten berechnet wird!
     
     st.header("Additional Data Editors for Safety and Quality")
     # Safety Data Editor
