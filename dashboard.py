@@ -62,7 +62,7 @@ def default_eac():
     })
 
 # -------------------------------
-# Initialisiere Session State für jede Unterabteilung
+# Session State initialisieren
 # -------------------------------
 for dept in ["Gov", "Risk", "Audit"]:
     if f"{dept}_CFD" not in st.session_state:
@@ -75,9 +75,7 @@ for dept in ["Gov", "Risk", "Audit"]:
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# -------------------------------
 # Basiswerte für Kennzahlen (Beispielwerte)
-# -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -162,7 +160,8 @@ st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    # CFD – Gestufte, eckige Darstellung (line_shape='hv') mit individueller Hover-Info
+    
+    # CFD – Gestufte Darstellung als Stacked Area Chart mit Ecken (line_shape='hv')
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -228,10 +227,10 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render-Diagramme je nach Auswahl
+# Render-Diagramme abhängig von der Auswahl in der Sidebar
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
+    # Aggregiere CFD-Daten aus den drei Unterabteilungen
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
