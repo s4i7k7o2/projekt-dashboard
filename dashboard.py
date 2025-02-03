@@ -183,7 +183,8 @@ st.title(f"{selected_dept} Dashboard")
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
     
-    # CFD: Gestapelte Darstellung als Stacked Area Chart, mit linearer (zigzag) Verbindung
+    # CFD Diagramm: Zeigt den kumulativen Verlauf der Status über die Zeit.
+    st.markdown("**CFD (Cumulative Flow Diagram):** Dieses Diagramm stellt die Anzahl der Einträge in den Status 'Backlog', 'In Progress' und 'Done' über die Zeit dar. Anhand der gestapelten Bereiche erkennt man, wie sich die Gesamtzahl der Aufgaben im Projekt verändert.")
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -205,7 +206,8 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_cfd, use_container_width=True)
     
-    # BDC Diagramm
+    # BDC Diagramm: Zeigt den idealen und den tatsächlichen Burndown über die Zeit.
+    st.markdown("**BDC (Burndown Chart):** Dieses Diagramm vergleicht den idealen Verlauf des Arbeitsrückstands mit dem tatsächlichen Fortschritt im Zeitverlauf.")
     df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
     df_bdc["Date"] = convert_date(df_bdc["Date"])
     df_bdc = df_bdc.sort_values("Date")
@@ -227,7 +229,8 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_bdc, use_container_width=True)
     
-    # BUC Diagramm
+    # BUC Diagramm: Zeigt den Fortschritt und die Veränderung des Projektumfangs über die Zeit.
+    st.markdown("**BUC (Burnup Chart):** Dieses Diagramm stellt den Gesamtumfang des Projekts sowie den abgeschlossenen Anteil dar und zeigt somit, wie sich der Fortschritt und eventuelle Änderungen im Scope entwickeln.")
     df_buc = st.session_state[f"{dept_key}_BUC"].copy()
     df_buc["Date"] = convert_date(df_buc["Date"])
     df_buc = df_buc.sort_values("Date")
@@ -249,17 +252,18 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render-Diagramme abhängig von der Sidebar-Auswahl
+# Render-Diagramme je nach Auswahl in der Sidebar
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Zuerst: Gauges für SPM und CCPM (Gauge-Diagramme oben im Tab)
-    # SPM-Daten aus dem SPM Data Editor
+    
+    # Oben: Gauge-Diagramme für SPM und CCPM
+    st.markdown("**Performance Metrics Gauges:** Diese Diagramme geben einen schnellen Überblick über die Projektleistung. Der SPM (Schedule Performance Metric) zeigt den Fortschritt im Vergleich zu den Plandaten, während der CCPM (Cost Contingency Performance Metric) die Kostenkontrolle anhand der EAC-Daten widerspiegelt.")
+    # SPM: SPM = (Earned / Planned)*100, Daten aus dem SPM Data Editor
     spm_df = st.session_state["SPM"]
-    # Beispiel: SPM = (Earned / Planned)*100
     spm_value = (spm_df["Earned"].iloc[0] / spm_df["Planned"].iloc[0]) * 100
     spm_value = round(spm_value, 2)
     spm_ref = 100
-    # CCPM anhand der aggregierten EAC-Daten
+    # CCPM anhand des aggregierten EACs (letzter Datensatz)
     df_eac = st.session_state["EAC"].copy()
     df_eac["Date"] = convert_date(df_eac["Date"])
     df_eac = df_eac.sort_values("Date")
@@ -421,6 +425,7 @@ else:
     def render_charts_for_dept(dept_key, dept_name, color_scheme):
         st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
         # CFD
+        st.markdown("**CFD (Cumulative Flow Diagram):** Dieses Diagramm zeigt, wie sich die Anzahl der Einträge in den Status 'Backlog', 'In Progress' und 'Done' über die Zeit verändert.")
         df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
         df_cfd["Date"] = convert_date(df_cfd["Date"])
         df_cfd = df_cfd.sort_values("Date")
@@ -443,6 +448,7 @@ else:
         st.plotly_chart(fig_cfd, use_container_width=True)
         
         # BDC
+        st.markdown("**BDC (Burndown Chart):** Dieses Diagramm vergleicht den idealen Verlauf des Arbeitsrückstands mit dem tatsächlichen Fortschritt über die Zeit.")
         df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
         df_bdc["Date"] = convert_date(df_bdc["Date"])
         df_bdc = df_bdc.sort_values("Date")
@@ -465,6 +471,7 @@ else:
         st.plotly_chart(fig_bdc, use_container_width=True)
         
         # BUC
+        st.markdown("**BUC (Burnup Chart):** Dieses Diagramm zeigt den Gesamtumfang des Projekts sowie den abgeschlossenen Anteil, wodurch der Fortschritt und etwaige Änderungen im Scope ersichtlich werden.")
         df_buc = st.session_state[f"{dept_key}_BUC"].copy()
         df_buc["Date"] = convert_date(df_buc["Date"])
         df_buc = df_buc.sort_values("Date")
