@@ -5,10 +5,10 @@ import pandas as pd
 import numpy as np
 import io
 
-# Set page configuration
+# Setze Seitenkonfiguration
 st.set_page_config(layout="wide")
 
-# Utility: Try to use a data editor widget if available.
+# --- Hilfsfunktion: Data Editor ermitteln (experimental_data_editor oder data_editor) ---
 def get_data_editor():
     if hasattr(st, "experimental_data_editor"):
         return st.experimental_data_editor
@@ -19,25 +19,25 @@ def get_data_editor():
 
 data_editor = get_data_editor()
 
-# Initialize session state keys for performance metrics if not already set.
+# Initialisiere Session State für die Performance Metrics (Standardwerte aus den Beispieldaten)
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
-    st.session_state.spm_ref = 80
+    st.session_state.spm_ref = 100  # Wir setzen als Referenz 100 (100% erreicht = ideal)
 if "ccpm_value" not in st.session_state:
-    st.session_state.ccpm_value = 65
+    st.session_state.ccpm_value = 80
 if "ccpm_ref" not in st.session_state:
-    st.session_state.ccpm_ref = 70
+    st.session_state.ccpm_ref = 100
 if "safety_value" not in st.session_state:
-    st.session_state.safety_value = 90
+    st.session_state.safety_value = 60
 if "safety_ref" not in st.session_state:
-    st.session_state.safety_ref = 95
+    st.session_state.safety_ref = 100
 if "qam_value" not in st.session_state:
-    st.session_state.qam_value = 80
+    st.session_state.qam_value = 90
 if "qam_ref" not in st.session_state:
-    st.session_state.qam_ref = 85
+    st.session_state.qam_ref = 100
 
-# Create two tabs: one for the Dashboard and one for Data Editor.
+# Erstelle zwei Tabs: "Dashboard" und "Data Editor"
 tabs = st.tabs(["Dashboard", "Data Editor"])
 
 # ===========================
@@ -80,12 +80,12 @@ with tabs[0]:
     """)
 
     # ----------------------
-    # Performance Metrics Gauges (using session state values)
+    # Performance Metrics Gauges (Aus den im Session State gespeicherten Werten)
     # ----------------------
     st.header("Performance Metrics Gauges")
-    st.markdown("The gauges below illustrate performance metric values based on the data entered in the Data Editor tab.")
+    st.markdown("Die folgenden Gauges zeigen die aus den im Data Editor eingegebenen Daten berechneten Kennzahlen.")
     
-    # Schedule Performance Metric Gauge (SPM)
+    # Schedule Performance Metric (SPM) Gauge
     fig_schedule = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=st.session_state.spm_value,
@@ -107,7 +107,7 @@ with tabs[0]:
         }
     ))
 
-    # Cost Contingency Performance Metric Gauge (CCPM)
+    # Cost Contingency Performance Metric (CCPM) Gauge
     fig_cost = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=st.session_state.ccpm_value,
@@ -129,7 +129,7 @@ with tabs[0]:
         }
     ))
 
-    # Safety Performance Metric Gauge (Safety SPM)
+    # Safety Performance Metric Gauge
     fig_safety = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=st.session_state.safety_value,
@@ -151,7 +151,7 @@ with tabs[0]:
         }
     ))
 
-    # Quality Assurance Metric Gauge (QAM)
+    # Quality Assurance Metric (QAM) Gauge
     fig_quality = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=st.session_state.qam_value,
@@ -173,7 +173,7 @@ with tabs[0]:
         }
     ))
 
-    # Layout the gauges in two columns
+    # Gauges in zwei Spalten anordnen
     col1, col2 = st.columns(2)
     with col1:
         st.plotly_chart(fig_schedule, use_container_width=True)
@@ -181,9 +181,9 @@ with tabs[0]:
     with col2:
         st.plotly_chart(fig_safety, use_container_width=True)
         st.plotly_chart(fig_quality, use_container_width=True)
-
+    
     # ----------------------
-    # Additional Diagrams Section (using simulated chart data)
+    # Weitere Diagramme (hier mit simulierten Daten)
     # ----------------------
     st.header("Additional Diagrams")
     
@@ -307,7 +307,7 @@ with tabs[0]:
 # ===========================
 with tabs[1]:
     st.title("Manual Data Entry")
-    st.markdown("In this tab you can manually edit the sample data. Changes here will update the Dashboard tab.")
+    st.markdown("In this tab kannst du die zugrunde liegenden Daten bearbeiten. Die eingegebenen Daten fließen in die Berechnung der Kennzahlen ein und aktualisieren die Dashboard-Gauges.")
     
     st.header("Chart Data Editors")
     # CFD Data Editor
@@ -321,13 +321,13 @@ with tabs[1]:
     if data_editor is not None:
         edited_cfd = data_editor(sample_cfd, num_rows="dynamic", key="cfd")
     else:
-        st.info("Data editor widget not available. Edit CSV below.")
+        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
         csv_cfd = sample_cfd.to_csv(index=False)
-        edited_csv_cfd = st.text_area("Edit CFD data (CSV)", value=csv_cfd, key="cfd_txt")
+        edited_csv_cfd = st.text_area("Editiere CFD-Daten (CSV)", value=csv_cfd, key="cfd_txt")
         try:
             edited_cfd = pd.read_csv(io.StringIO(edited_csv_cfd))
         except Exception as e:
-            st.error(f"Error parsing CSV: {e}")
+            st.error(f"Fehler beim Parsen: {e}")
             edited_cfd = sample_cfd
 
     # BDC Data Editor
@@ -340,13 +340,13 @@ with tabs[1]:
     if data_editor is not None:
         edited_bdc = data_editor(sample_bdc, num_rows="dynamic", key="bdc")
     else:
-        st.info("Data editor widget not available. Edit CSV below.")
+        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
         csv_bdc = sample_bdc.to_csv(index=False)
-        edited_csv_bdc = st.text_area("Edit BDC data (CSV)", value=csv_bdc, key="bdc_txt")
+        edited_csv_bdc = st.text_area("Editiere BDC-Daten (CSV)", value=csv_bdc, key="bdc_txt")
         try:
             edited_bdc = pd.read_csv(io.StringIO(edited_csv_bdc))
         except Exception as e:
-            st.error(f"Error parsing CSV: {e}")
+            st.error(f"Fehler beim Parsen: {e}")
             edited_bdc = sample_bdc
 
     # BUC Data Editor
@@ -359,13 +359,13 @@ with tabs[1]:
     if data_editor is not None:
         edited_buc = data_editor(sample_buc, num_rows="dynamic", key="buc")
     else:
-        st.info("Data editor widget not available. Edit CSV below.")
+        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
         csv_buc = sample_buc.to_csv(index=False)
-        edited_csv_buc = st.text_area("Edit BUC data (CSV)", value=csv_buc, key="buc_txt")
+        edited_csv_buc = st.text_area("Editiere BUC-Daten (CSV)", value=csv_buc, key="buc_txt")
         try:
             edited_buc = pd.read_csv(io.StringIO(edited_csv_buc))
         except Exception as e:
-            st.error(f"Error parsing CSV: {e}")
+            st.error(f"Fehler beim Parsen: {e}")
             edited_buc = sample_buc
 
     # EAC Data Editor
@@ -378,24 +378,87 @@ with tabs[1]:
     if data_editor is not None:
         edited_eac = data_editor(sample_eac, num_rows="dynamic", key="eac")
     else:
-        st.info("Data editor widget not available. Edit CSV below.")
+        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
         csv_eac = sample_eac.to_csv(index=False)
-        edited_csv_eac = st.text_area("Edit EAC data (CSV)", value=csv_eac, key="eac_txt")
+        edited_csv_eac = st.text_area("Editiere EAC-Daten (CSV)", value=csv_eac, key="eac_txt")
         try:
             edited_eac = pd.read_csv(io.StringIO(edited_csv_eac))
         except Exception as e:
-            st.error(f"Error parsing CSV: {e}")
+            st.error(f"Fehler beim Parsen: {e}")
             edited_eac = sample_eac
 
-    st.header("Performance Metrics Data")
-    st.markdown("Update the performance metric values. These values are used by the gauges in the Dashboard tab.")
-    st.session_state.spm_value = st.number_input("SPM Value (0-100)", value=st.session_state.spm_value, key="spm_value_input")
-    st.session_state.spm_ref   = st.number_input("SPM Reference", value=st.session_state.spm_ref, key="spm_ref_input")
-    st.session_state.ccpm_value = st.number_input("CCPM Value (0-100)", value=st.session_state.ccpm_value, key="ccpm_value_input")
-    st.session_state.ccpm_ref   = st.number_input("CCPM Reference", value=st.session_state.ccpm_ref, key="ccpm_ref_input")
-    st.session_state.safety_value = st.number_input("Safety SPM Value (0-100)", value=st.session_state.safety_value, key="safety_value_input")
-    st.session_state.safety_ref   = st.number_input("Safety SPM Reference", value=st.session_state.safety_ref, key="safety_ref_input")
-    st.session_state.qam_value = st.number_input("QAM Value (0-100)", value=st.session_state.qam_value, key="qam_value_input")
-    st.session_state.qam_ref   = st.number_input("QAM Reference", value=st.session_state.qam_ref, key="qam_ref_input")
+    st.header("Additional Data Editors for Performance Metrics")
+    # Safety Data Editor
+    st.subheader("Safety Data")
+    sample_safety = pd.DataFrame({
+        "Total Incidents": [2],
+        "Expected Incidents": [5]
+    })
+    if data_editor is not None:
+        edited_safety = data_editor(sample_safety, num_rows="static", key="safety")
+    else:
+        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
+        csv_safety = sample_safety.to_csv(index=False)
+        edited_csv_safety = st.text_area("Editiere Safety-Daten (CSV)", value=csv_safety, key="safety_txt")
+        try:
+            edited_safety = pd.read_csv(io.StringIO(edited_csv_safety))
+        except Exception as e:
+            st.error(f"Fehler beim Parsen: {e}")
+            edited_safety = sample_safety
+
+    # Quality Data Editor
+    st.subheader("Quality Data")
+    sample_quality = pd.DataFrame({
+        "NonConformance": [1],
+        "Allowed": [10]
+    })
+    if data_editor is not None:
+        edited_quality = data_editor(sample_quality, num_rows="static", key="quality")
+    else:
+        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
+        csv_quality = sample_quality.to_csv(index=False)
+        edited_csv_quality = st.text_area("Editiere Quality-Daten (CSV)", value=csv_quality, key="quality_txt")
+        try:
+            edited_quality = pd.read_csv(io.StringIO(edited_csv_quality))
+        except Exception as e:
+            st.error(f"Fehler beim Parsen: {e}")
+            edited_quality = sample_quality
+
+    # --- Berechnung der Performance Metrics aus den bearbeiteten Daten ---
+    st.header("Berechnung der Kennzahlen")
+    # SPM aus BDC: Wir verwenden den ersten Wert der Spalte "Ideal" und den letzten Wert der Spalte "Actual"
+    if not edited_bdc.empty:
+        first_ideal = edited_bdc['Ideal'].iloc[0]
+        last_actual = edited_bdc['Actual'].iloc[-1]
+        computed_spm = (first_ideal - last_actual) / first_ideal * 100
+        st.session_state.spm_value = round(computed_spm, 2)
+        st.session_state.spm_ref = 100
+        st.write(f"Berechnetes SPM: {st.session_state.spm_value:.2f} %")
     
-    st.markdown("Changes here will update the charts in the Dashboard tab on the next rerun.")
+    # CCPM aus EAC: Verwende den letzten Datensatz
+    if not edited_eac.empty:
+        last_row = edited_eac.iloc[-1]
+        computed_ccpm = (last_row['Actual Cost'] / last_row['Forecast Cost']) * 100
+        st.session_state.ccpm_value = round(computed_ccpm, 2)
+        st.session_state.ccpm_ref = 100
+        st.write(f"Berechnetes CCPM: {st.session_state.ccpm_value:.2f} %")
+    
+    # Safety SPM aus Safety Data
+    if not edited_safety.empty:
+        safety_row = edited_safety.iloc[0]
+        computed_safety = max(0, (1 - (safety_row['Total Incidents'] / safety_row['Expected Incidents'])) * 100)
+        st.session_state.safety_value = round(computed_safety, 2)
+        st.session_state.safety_ref = 100
+        st.write(f"Berechnetes Safety SPM: {st.session_state.safety_value:.2f} %")
+    
+    # QAM aus Quality Data
+    if not edited_quality.empty:
+        quality_row = edited_quality.iloc[0]
+        computed_qam = max(0, (1 - (quality_row['NonConformance'] / quality_row['Allowed'])) * 100)
+        st.session_state.qam_value = round(computed_qam, 2)
+        st.session_state.qam_ref = 100
+        st.write(f"Berechnetes QAM: {st.session_state.qam_value:.2f} %")
+    
+    st.markdown("Die berechneten Kennzahlen (Performance Metrics) werden in den Gauges oben angezeigt.")
+
+    st.markdown("Hinweis: Beim Wechseln des Tabs oder einem erneuten Ausführen der App werden die Gauges mit den in Tab 2 eingegebenen Daten aktualisiert.")
