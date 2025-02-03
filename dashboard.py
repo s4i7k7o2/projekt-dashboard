@@ -22,7 +22,6 @@ def get_data_editor():
 data_editor = get_data_editor()
 
 def convert_date(date_series):
-    # Erwartet das Format DD.MM.YYYY und konvertiert in datetime
     return pd.to_datetime(date_series, format='%d.%m.%Y', dayfirst=True)
 
 # -------------------------------
@@ -67,6 +66,10 @@ def default_eac():
         "Forecast Cost": forecast
     })
 
+def default_spm():
+    # Für SPM-Daten: Geplante und tatsächliche (Earned) Werte
+    return pd.DataFrame({"Planned": [100], "Earned": [75]})
+
 # -------------------------------
 # Session State initialisieren
 # -------------------------------
@@ -80,8 +83,10 @@ for dept in ["Gov", "Risk", "Audit"]:
 
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
+if "SPM" not in st.session_state:
+    st.session_state["SPM"] = default_spm()
 
-# Basiswerte für Kennzahlen (Beispielwerte)
+# Basiswerte für weitere Kennzahlen (Beispielwerte)
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -108,7 +113,7 @@ selected_dept = st.sidebar.selectbox(
 )
 
 if selected_dept == "GRA-Overall":
-    st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
+    st.sidebar.markdown("### Data Editor für Overall")
     with st.sidebar.expander("EAC Daten bearbeiten"):
         if data_editor is not None:
             edited_eac = data_editor(st.session_state["EAC"], num_rows="dynamic", key="EAC_editor")
@@ -120,6 +125,17 @@ if selected_dept == "GRA-Overall":
                 st.error(f"Fehler beim Parsen: {e}")
                 edited_eac = st.session_state["EAC"]
         st.session_state["EAC"] = edited_eac
+    with st.sidebar.expander("SPM Daten bearbeiten"):
+        if data_editor is not None:
+            edited_spm = data_editor(st.session_state["SPM"], num_rows="static", key="SPM_editor")
+        else:
+            csv_text = st.text_area("SPM Daten (CSV)", value=st.session_state["SPM"].to_csv(index=False), key="SPM_csv")
+            try:
+                edited_spm = pd.read_csv(io.StringIO(csv_text), sep=",")
+            except Exception as e:
+                st.error(f"Fehler beim Parsen: {e}")
+                edited_spm = st.session_state["SPM"]
+        st.session_state["SPM"] = edited_spm
 else:
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     st.sidebar.markdown(f"### Data Editor für {selected_dept}")
@@ -167,7 +183,7 @@ st.title(f"{selected_dept} Dashboard")
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
     
-    # CFD: Gestapelte Darstellung als Stacked Area Chart mit line_shape="linear" (Zickzack)
+    # CFD: Gestapelte Darstellung als Stacked Area Chart, mit linearer (zigzag) Verbindung
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -233,10 +249,72 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render-Diagramme je nach Auswahl
+# Render-Diagramme abhängig von der Sidebar-Auswahl
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
+    # Zuerst: Gauges für SPM und CCPM (Gauge-Diagramme oben im Tab)
+    # SPM-Daten aus dem SPM Data Editor
+    spm_df = st.session_state["SPM"]
+    # Beispiel: SPM = (Earned / Planned)*100
+    spm_value = (spm_df["Earned"].iloc[0] / spm_df["Planned"].iloc[0]) * 100
+    spm_value = round(spm_value, 2)
+    spm_ref = 100
+    # CCPM anhand der aggregierten EAC-Daten
+    df_eac = st.session_state["EAC"].copy()
+    df_eac["Date"] = convert_date(df_eac["Date"])
+    df_eac = df_eac.sort_values("Date")
+    last_row = df_eac.iloc[-1]
+    ccp_value = (last_row["Actual Cost"] / last_row["Forecast Cost"]) * 100
+    ccp_value = round(ccp_value, 2)
+    ccp_ref = 100
+
+    col1, col2 = st.columns(2)
+    fig_spm = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=spm_value,
+        delta={'reference': spm_ref},
+        title={'text': "Schedule Performance Metric (SPM)"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, 50], 'color': "red"},
+                {'range': [50, 80], 'color': "yellow"},
+                {'range': [80, 100], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': spm_ref
+            }
+        }
+    ))
+    fig_ccpm = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=ccp_value,
+        delta={'reference': ccp_ref},
+        title={'text': "Cost Contingency Performance Metric (CCPM)"},
+        gauge={
+            'axis': {'range': [0, 150]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, 50], 'color': "red"},
+                {'range': [50, 75], 'color': "yellow"},
+                {'range': [75, 150], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': ccp_ref
+            }
+        }
+    ))
+    with col1:
+        st.plotly_chart(fig_spm, use_container_width=True)
+    with col2:
+        st.plotly_chart(fig_ccpm, use_container_width=True)
+    
+    # Aggregiere CFD-Daten
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -332,65 +410,6 @@ if selected_dept == "GRA-Overall":
                                   xaxis_title="Date", yaxis_title="Cost (€)",
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_eac, use_container_width=True)
-    
-    # Gauge-Diagramme für SPM und CCPM
-    st.markdown("### Performance Metrics Gauges")
-    # Beispielwerte; bei CCPM berechnen wir aus den EAC-Daten (letzter Datensatz)
-    spm_value = st.session_state.spm_value  # hier könnte auch eine Aggregation erfolgen
-    spm_ref = st.session_state.spm_ref
-    df_eac = st.session_state["EAC"].copy()
-    last_row = df_eac.sort_values("Date").iloc[-1]
-    ccp_value = (last_row["Actual Cost"] / last_row["Forecast Cost"]) * 100
-    ccp_value = round(ccp_value, 2)
-    ccp_ref = 100
-
-    fig_spm = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=spm_value,
-        delta={'reference': spm_ref},
-        title={'text': "Schedule Performance Metric (SPM)"},
-        gauge={
-            'axis': {'range': [0, 100]},
-            'bar': {'color': "darkblue"},
-            'steps': [
-                {'range': [0, 50], 'color': "red"},
-                {'range': [50, 80], 'color': "yellow"},
-                {'range': [80, 100], 'color': "green"}
-            ],
-            'threshold': {
-                'line': {'color': "black", 'width': 4},
-                'thickness': 0.75,
-                'value': spm_ref
-            }
-        }
-    ))
-
-    fig_ccpm = go.Figure(go.Indicator(
-        mode="gauge+number+delta",
-        value=ccp_value,
-        delta={'reference': ccp_ref},
-        title={'text': "Cost Contingency Performance Metric (CCPM)"},
-        gauge={
-            'axis': {'range': [0, 150]},
-            'bar': {'color': "darkblue"},
-            'steps': [
-                {'range': [0, 50], 'color': "red"},
-                {'range': [50, 75], 'color': "yellow"},
-                {'range': [75, 150], 'color': "green"}
-            ],
-            'threshold': {
-                'line': {'color': "black", 'width': 4},
-                'thickness': 0.75,
-                'value': ccp_ref
-            }
-        }
-    ))
-
-    col1, col2 = st.columns(2)
-    with col1:
-        st.plotly_chart(fig_spm, use_container_width=True)
-    with col2:
-        st.plotly_chart(fig_ccpm, use_container_width=True)
     
     st.markdown("### Conclusion")
     st.markdown("""
