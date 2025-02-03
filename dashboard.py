@@ -12,7 +12,6 @@ st.set_page_config(layout="wide", page_title="GRA Dashboard")
 # Hilfsfunktionen
 # -------------------------------
 def get_data_editor():
-    # Nutzt st.experimental_data_editor oder st.data_editor, falls verfügbar
     if hasattr(st, "experimental_data_editor"):
         return st.experimental_data_editor
     elif hasattr(st, "data_editor"):
@@ -23,7 +22,6 @@ def get_data_editor():
 data_editor = get_data_editor()
 
 def convert_date(date_series):
-    # Erwartet das Format DD.MM.YYYY und konvertiert in datetime
     return pd.to_datetime(date_series, format='%d.%m.%Y', dayfirst=True)
 
 # -------------------------------
@@ -63,7 +61,7 @@ def default_eac():
     })
 
 # -------------------------------
-# Initialisiere Session State für jede Unterabteilung
+# Initialisiere Session State
 # -------------------------------
 for dept in ["Gov", "Risk", "Audit"]:
     if f"{dept}_CFD" not in st.session_state:
@@ -73,13 +71,9 @@ for dept in ["Gov", "Risk", "Audit"]:
     if f"{dept}_BUC" not in st.session_state:
         st.session_state[f"{dept}_BUC"] = default_buc()
 
-# EAC-Daten (für Overall)
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# -------------------------------
-# Basiswerte für Kennzahlen (SPM, CCPM, Safety, QAM)
-# -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -105,7 +99,6 @@ selected_dept = st.sidebar.selectbox(
     options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
 )
 
-# Sidebar Data Editor je nach ausgewähltem Tab
 if selected_dept == "GRA-Overall":
     st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
     if data_editor is not None:
@@ -158,7 +151,7 @@ else:
         st.session_state[f"{dept_key}_BUC"] = edited
 
 # -------------------------------
-# Main-Bereich: Darstellung der Diagramme entsprechend der Abteilungsauswahl
+# Main-Bereich: Darstellung der Diagramme
 # -------------------------------
 st.title(f"{selected_dept} Dashboard")
 
@@ -167,6 +160,7 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
     # CFD
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
+    df_cfd = df_cfd.sort_values("Date")
     df_cfd_melt = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
                                var_name="Stage", value_name="Count")
     fig_cfd = px.area(df_cfd_melt, x="Date", y="Count", color="Stage",
@@ -178,6 +172,7 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
     # BDC
     df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
     df_bdc["Date"] = convert_date(df_bdc["Date"])
+    df_bdc = df_bdc.sort_values("Date")
     fig_bdc = go.Figure()
     fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
                                  mode='lines', name='Ideal Burndown',
@@ -193,6 +188,7 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
     # BUC
     df_buc = st.session_state[f"{dept_key}_BUC"].copy()
     df_buc["Date"] = convert_date(df_buc["Date"])
+    df_buc = df_buc.sort_values("Date")
     fig_buc = go.Figure()
     fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
                                  mode='lines', name='Total Scope',
@@ -205,10 +201,9 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Wenn "GRA-Overall" ausgewählt ist, aggregiere die Daten aller Unterabteilungen
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten
+    # Aggregiere CFD-Daten aus den drei Unterabteilungen
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -261,9 +256,10 @@ if selected_dept == "GRA-Overall":
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_buc, use_container_width=True)
     
-    # EAC-Diagramm (nur im Overall-Tab)
+    # EAC Diagramm (nur im Overall-Tab)
     df_overall_eac = st.session_state["EAC"].copy()
     df_overall_eac["Date"] = convert_date(df_overall_eac["Date"])
+    df_overall_eac = df_overall_eac.sort_values("Date")
     fig_overall_eac = go.Figure()
     fig_overall_eac.add_trace(go.Scatter(x=df_overall_eac["Date"], y=df_overall_eac["Actual Cost"],
                                          mode='lines+markers', name='Actual Cost',
@@ -282,13 +278,13 @@ if selected_dept == "GRA-Overall":
     Änderungen im Data Editor (Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
     """)
 else:
-    # Für Unterabteilungen: Governance, Risk, Audit & Assessment
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     def render_charts_for_dept(dept_key, dept_name, color_scheme):
         st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
         # CFD
         df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
         df_cfd["Date"] = convert_date(df_cfd["Date"])
+        df_cfd = df_cfd.sort_values("Date")
         df_cfd_melt = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
                                    var_name="Stage", value_name="Count")
         fig_cfd = px.area(df_cfd_melt, x="Date", y="Count", color="Stage",
@@ -300,6 +296,7 @@ else:
         # BDC
         df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
         df_bdc["Date"] = convert_date(df_bdc["Date"])
+        df_bdc = df_bdc.sort_values("Date")
         fig_bdc = go.Figure()
         fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
                                      mode='lines', name='Ideal Burndown',
@@ -315,6 +312,7 @@ else:
         # BUC
         df_buc = st.session_state[f"{dept_key}_BUC"].copy()
         df_buc["Date"] = convert_date(df_buc["Date"])
+        df_buc = df_buc.sort_values("Date")
         fig_buc = go.Figure()
         fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
                                      mode='lines', name='Total Scope',
