@@ -81,7 +81,7 @@ for dept in ["Gov", "Risk", "Audit"]:
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# Beispiel-Basiswerte für Kennzahlen
+# Basiswerte für Kennzahlen (Beispielwerte)
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -166,12 +166,12 @@ st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    # CFD: Gestapelte Darstellung als Stacked Area Chart mit line_shape 'linear' (ZickZag)
+    
+    # CFD: Gestapelte Darstellung als Stacked Area Chart mit line_shape="linear" (Zickzack)
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
     fig_cfd = go.Figure()
-    # Verwende line_shape 'linear', um direkt von Punkt zu Punkt zu verbinden (so entsteht ein zickzackartiger Verlauf)
     for stage, col, trace_color in zip(["Backlog", "In Progress", "Done"],
                                        ["Backlog", "In Progress", "Done"],
                                        ["#1f77b4", "#ff7f0e", "#2ca02c"]):
@@ -233,7 +233,7 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render-Diagramme je nach Auswahl in der Sidebar
+# Render-Diagramme je nach Auswahl
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
     # Aggregiere CFD-Daten aus allen drei Unterabteilungen
@@ -332,6 +332,65 @@ if selected_dept == "GRA-Overall":
                                   xaxis_title="Date", yaxis_title="Cost (€)",
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_eac, use_container_width=True)
+    
+    # Gauge-Diagramme für SPM und CCPM
+    st.markdown("### Performance Metrics Gauges")
+    # Beispielwerte; bei CCPM berechnen wir aus den EAC-Daten (letzter Datensatz)
+    spm_value = st.session_state.spm_value  # hier könnte auch eine Aggregation erfolgen
+    spm_ref = st.session_state.spm_ref
+    df_eac = st.session_state["EAC"].copy()
+    last_row = df_eac.sort_values("Date").iloc[-1]
+    ccp_value = (last_row["Actual Cost"] / last_row["Forecast Cost"]) * 100
+    ccp_value = round(ccp_value, 2)
+    ccp_ref = 100
+
+    fig_spm = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=spm_value,
+        delta={'reference': spm_ref},
+        title={'text': "Schedule Performance Metric (SPM)"},
+        gauge={
+            'axis': {'range': [0, 100]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, 50], 'color': "red"},
+                {'range': [50, 80], 'color': "yellow"},
+                {'range': [80, 100], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': spm_ref
+            }
+        }
+    ))
+
+    fig_ccpm = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=ccp_value,
+        delta={'reference': ccp_ref},
+        title={'text': "Cost Contingency Performance Metric (CCPM)"},
+        gauge={
+            'axis': {'range': [0, 150]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [0, 50], 'color': "red"},
+                {'range': [50, 75], 'color': "yellow"},
+                {'range': [75, 150], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': ccp_ref
+            }
+        }
+    ))
+
+    col1, col2 = st.columns(2)
+    with col1:
+        st.plotly_chart(fig_spm, use_container_width=True)
+    with col2:
+        st.plotly_chart(fig_ccpm, use_container_width=True)
     
     st.markdown("### Conclusion")
     st.markdown("""
