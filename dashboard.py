@@ -22,7 +22,7 @@ def get_data_editor():
 data_editor = get_data_editor()
 
 def convert_date(date_series):
-    # Expects format DD.MM.YYYY and converts to datetime
+    # Expects date strings in DD.MM.YYYY format and converts to datetime
     return pd.to_datetime(date_series, format='%d.%m.%Y', dayfirst=True)
 
 # -------------------------------
@@ -68,7 +68,7 @@ def default_eac():
     })
 
 def default_spm():
-    # For SPM data: Planned and Earned values
+    # For SPM data: Planned and Earned values (for example, planned = 100, earned = 75)
     return pd.DataFrame({"Planned": [100], "Earned": [75]})
 
 # -------------------------------
@@ -151,7 +151,6 @@ else:
                 st.error(f"Error parsing CSV: {e}")
                 edited = st.session_state[f"{dept_key}_CFD"]
         st.session_state[f"{dept_key}_CFD"] = edited
-
     with st.sidebar.expander(f"{selected_dept} – BDC Data"):
         if data_editor is not None:
             edited = data_editor(st.session_state[f"{dept_key}_BDC"], num_rows="dynamic", key=f"{dept_key}_BDC_editor")
@@ -163,7 +162,6 @@ else:
                 st.error(f"Error parsing CSV: {e}")
                 edited = st.session_state[f"{dept_key}_BDC"]
         st.session_state[f"{dept_key}_BDC"] = edited
-
     with st.sidebar.expander(f"{selected_dept} – BUC Data"):
         if data_editor is not None:
             edited = data_editor(st.session_state[f"{dept_key}_BUC"], num_rows="dynamic", key=f"{dept_key}_BUC_editor")
@@ -177,15 +175,15 @@ else:
         st.session_state[f"{dept_key}_BUC"] = edited
 
 # -------------------------------
-# Main Area: Display Charts
+# Main Area: Display Charts and Gauges
 # -------------------------------
 st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Charts and Metrics")
     
-    # CFD Chart Description
-    st.markdown("**CFD (Cumulative Flow Diagram):** This diagram shows the evolution over time of the counts in the statuses 'Backlog', 'In Progress', and 'Done'. It displays how the total number of entries changes over time.")
+    # CFD Chart with Description
+    st.markdown("**CFD (Cumulative Flow Diagram):** This diagram displays the cumulative count of items in the statuses 'Backlog', 'In Progress', and 'Done' over time.")
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -207,8 +205,8 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_cfd, use_container_width=True)
     
-    # BDC Chart Description
-    st.markdown("**BDC (Burndown Chart):** This chart compares the ideal course of work remaining with the actual progress over time.")
+    # BDC Chart with Description
+    st.markdown("**BDC (Burndown Chart):** This chart compares the ideal burndown (planned progress) with the actual progress over time.")
     df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
     df_bdc["Date"] = convert_date(df_bdc["Date"])
     df_bdc = df_bdc.sort_values("Date")
@@ -230,8 +228,8 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_bdc, use_container_width=True)
     
-    # BUC Chart Description
-    st.markdown("**BUC (Burnup Chart):** This chart displays the total project scope and the completed portion over time, reflecting both progress and scope changes.")
+    # BUC Chart with Description
+    st.markdown("**BUC (Burnup Chart):** This chart illustrates the total project scope and the completed work over time, reflecting overall progress and any scope changes.")
     df_buc = st.session_state[f"{dept_key}_BUC"].copy()
     df_buc["Date"] = convert_date(df_buc["Date"])
     df_buc = df_buc.sort_values("Date")
@@ -258,22 +256,20 @@ if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregated Charts and Metrics")
     
     # Gauge Charts for SPM and CCPM at the top
-    st.markdown("**Performance Metrics Gauges:** These gauges provide a quick overview of project performance. The SPM (Schedule Performance Metric) indicates field progress versus planned progress, and the CCPM (Cost Contingency Performance Metric) is calculated based on aggregated EAC data.")
-    # SPM: SPM = (Earned / Planned)*100, using SPM data from the SPM Data Editor
+    st.markdown("**Performance Metrics Gauges:** These gauges provide a quick overview of project performance. The SPM (Schedule Performance Metric) indicates field progress versus planned progress, while the CCPM (Cost Contingency Performance Metric) is calculated based on the aggregated EAC data.")
     spm_df = st.session_state["SPM"]
     spm_value = (spm_df["Earned"].iloc[0] / spm_df["Planned"].iloc[0]) * 100
     spm_value = round(spm_value, 2)
     spm_ref = 100
-    # CCPM: calculated from the aggregated EAC data (last record)
-    df_eac = st.session_state["EAC"].copy()
-    df_eac["Date"] = convert_date(df_eac["Date"])
-    df_eac = df_eac.sort_values("Date")
-    last_row = df_eac.iloc[-1]
-    ccp_value = (last_row["Actual Cost"] / last_row["Forecast Cost"]) * 100
-    ccp_value = round(ccp_value, 2)
-    ccp_ref = 100
+    # Additional EVM metrics:
+    # For Schedule Variance (SV), we simulate it as the difference between SPM and 100.
+    sv_value = spm_value - 100  # e.g. if SPM is 75, SV is -25
+    sv_ref = 0  # A reference of 0 means no variance
+    # For Cost Variance (CV), we simulate a value (adjust as needed).
+    cv_value = -10  # For example, a -10% variance
+    cv_ref = 0
 
-    col1, col2 = st.columns(2)
+    col1, col2, col3, col4 = st.columns(4)
     fig_spm = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=spm_value,
@@ -294,10 +290,29 @@ if selected_dept == "GRA-Overall":
             }
         }
     ))
+    fig_sv = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=sv_value,
+        delta={'reference': sv_ref, 'position': "bottom"},
+        title={'text': "Schedule Variance (SV)"},
+        gauge={
+            'axis': {'range': [-50, 50]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [-50, 0], 'color': "red"},
+                {'range': [0, 50], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': sv_ref
+            }
+        }
+    ))
     fig_ccpm = go.Figure(go.Indicator(
         mode="gauge+number+delta",
-        value=ccp_value,
-        delta={'reference': ccp_ref},
+        value=(st.session_state["EAC"].sort_values("Date").iloc[-1]["Actual Cost"] / st.session_state["EAC"].sort_values("Date").iloc[-1]["Forecast Cost"]) * 100,
+        delta={'reference': st.session_state.ccpm_ref},
         title={'text': "Cost Contingency Performance Metric (CCPM)"},
         gauge={
             'axis': {'range': [0, 150]},
@@ -310,18 +325,40 @@ if selected_dept == "GRA-Overall":
             'threshold': {
                 'line': {'color': "black", 'width': 4},
                 'thickness': 0.75,
-                'value': ccp_ref
+                'value': st.session_state.ccpm_ref
+            }
+        }
+    ))
+    fig_cv = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=cv_value,
+        delta={'reference': cv_ref, 'position': "bottom"},
+        title={'text': "Cost Variance (CV)"},
+        gauge={
+            'axis': {'range': [-50, 50]},
+            'bar': {'color': "darkblue"},
+            'steps': [
+                {'range': [-50, 0], 'color': "red"},
+                {'range': [0, 50], 'color': "green"}
+            ],
+            'threshold': {
+                'line': {'color': "black", 'width': 4},
+                'thickness': 0.75,
+                'value': cv_ref
             }
         }
     ))
     with col1:
         st.plotly_chart(fig_spm, use_container_width=True)
     with col2:
+        st.plotly_chart(fig_sv, use_container_width=True)
+    with col3:
         st.plotly_chart(fig_ccpm, use_container_width=True)
+    with col4:
+        st.plotly_chart(fig_cv, use_container_width=True)
     
     # Aggregated CFD Description
-    st.markdown("**CFD (Cumulative Flow Diagram):** This diagram displays the cumulative count of items in the statuses 'Backlog', 'In Progress', and 'Done' over time, showing the total number of entries at each point.")
-    # Aggregated CFD Data
+    st.markdown("**CFD (Cumulative Flow Diagram):** This diagram displays the aggregated cumulative counts of items in the statuses 'Backlog', 'In Progress', and 'Done' over time.")
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -347,7 +384,7 @@ if selected_dept == "GRA-Overall":
     st.plotly_chart(fig_overall_cfd, use_container_width=True)
     
     # Aggregated BDC Description
-    st.markdown("**BDC (Burndown Chart):** This chart compares the ideal burndown (planned progress) with the actual progress over time.")
+    st.markdown("**BDC (Burndown Chart):** This chart compares the ideal burndown (planned progress) with the actual progress over time, aggregated from all sub-departments.")
     dfs_bdc = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_BDC"].copy()
@@ -373,7 +410,7 @@ if selected_dept == "GRA-Overall":
     st.plotly_chart(fig_overall_bdc, use_container_width=True)
     
     # Aggregated BUC Description
-    st.markdown("**BUC (Burnup Chart):** This chart illustrates the total project scope and the completed work over time, reflecting overall progress and scope changes.")
+    st.markdown("**BUC (Burnup Chart):** This chart illustrates the aggregated total project scope and the completed work over time.")
     dfs_buc = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_BUC"].copy()
@@ -399,7 +436,7 @@ if selected_dept == "GRA-Overall":
     st.plotly_chart(fig_overall_buc, use_container_width=True)
     
     # EAC Diagram Description
-    st.markdown("**EAC (Estimate at Completion):** This chart compares the actual cost with the forecast cost over time, helping to determine if any corrective actions are required.")
+    st.markdown("**EAC (Estimate at Completion):** This chart compares actual cost with forecast cost over time, helping to assess if corrective action is needed.")
     df_overall_eac = st.session_state["EAC"].copy()
     df_overall_eac["Date"] = convert_date(df_overall_eac["Date"])
     df_overall_eac = df_overall_eac.sort_values("Date")
@@ -430,7 +467,6 @@ else:
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     def render_charts_for_dept(dept_key, dept_name, color_scheme):
         st.markdown(f"### {dept_name} – Charts and Metrics")
-        # CFD Description
         st.markdown("**CFD (Cumulative Flow Diagram):** This diagram shows the evolution of the counts in 'Backlog', 'In Progress', and 'Done' over time.")
         df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
         df_cfd["Date"] = convert_date(df_cfd["Date"])
@@ -453,7 +489,6 @@ else:
                               xaxis=dict(tickformat="%d.%m.%Y"))
         st.plotly_chart(fig_cfd, use_container_width=True)
         
-        # BDC Description
         st.markdown("**BDC (Burndown Chart):** This chart compares the ideal burndown with the actual progress over time.")
         df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
         df_bdc["Date"] = convert_date(df_bdc["Date"])
@@ -476,8 +511,7 @@ else:
                               xaxis=dict(tickformat="%d.%m.%Y"))
         st.plotly_chart(fig_bdc, use_container_width=True)
         
-        # BUC Description
-        st.markdown("**BUC (Burnup Chart):** This chart displays the total project scope and the completed portion over time, indicating progress and any scope changes.")
+        st.markdown("**BUC (Burnup Chart):** This chart displays the total project scope and the completed work over time, indicating progress and any changes in scope.")
         df_buc = st.session_state[f"{dept_key}_BUC"].copy()
         df_buc["Date"] = convert_date(df_buc["Date"])
         df_buc = df_buc.sort_values("Date")
