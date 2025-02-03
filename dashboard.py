@@ -181,11 +181,121 @@ with tabs[0]:
         st.plotly_chart(fig_safety, use_container_width=True)
         st.plotly_chart(fig_quality, use_container_width=True)
     
-    # Weitere Diagramme (CFD, BDC, BUC, EAC) bleiben hier unverändert…
+    # ----------------------
+    # Additional Diagrams (CFD, BDC, BUC, EAC)
+    # ----------------------
     st.header("Additional Diagrams")
-    # (Hier folgt der Code für CFD, BDC, BUC, EAC, wie im bisherigen Beispiel.)
-    # Für Kürze habe ich den Code für diese Diagramme hier ausgelassen – er bleibt identisch.
-
+    
+    # CFD (Cumulative Flow Diagram)
+    st.subheader("CFD (Cumulative Flow Diagram)")
+    st.markdown("""
+    **When Useful:**  
+    - Particularly valuable in agile environments or ticket-driven processes to quickly identify bottlenecks.
+    - **Tip:** When combined with WIP limits, bottlenecks can be managed more effectively.
+    """)
+    days = pd.date_range(start="2025-01-01", periods=20)
+    backlog = np.random.randint(50, 100, size=20)
+    in_progress = np.random.randint(20, 70, size=20)
+    done = np.random.randint(10, 50, size=20)
+    df_cfd = pd.DataFrame({
+        "Date": days,
+        "Backlog": backlog,
+        "In Progress": in_progress,
+        "Done": done
+    })
+    df_cfd_plot = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
+                              var_name="Stage", value_name="Count")
+    fig_cfd = px.area(df_cfd_plot, x="Date", y="Count", color="Stage",
+                      title="Cumulative Flow Diagram")
+    st.plotly_chart(fig_cfd, use_container_width=True)
+    
+    # BDC (Burndown Chart)
+    st.subheader("BDC (Burndown Chart)")
+    st.markdown("""
+    **When Useful:**  
+    - In time-boxed sprints/iterations to track daily progress.
+    - **Tip:** Comparing real versus ideal burndown helps spot deviations.
+    """)
+    days = pd.date_range(start="2025-02-01", periods=15)
+    ideal = np.linspace(100, 0, 15)
+    actual = ideal + np.random.normal(0, 5, 15)
+    df_bdc = pd.DataFrame({
+        "Date": days,
+        "Ideal": ideal,
+        "Actual": actual
+    })
+    fig_bdc = go.Figure()
+    fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
+                                 mode='lines',
+                                 name='Ideal Burndown',
+                                 line=dict(dash='dash', color='green')))
+    fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Actual"],
+                                 mode='lines+markers',
+                                 name='Actual Burndown',
+                                 line=dict(color='red')))
+    fig_bdc.update_layout(title="Burndown Chart (BDC)",
+                          xaxis_title="Date",
+                          yaxis_title="Work Remaining (%)")
+    st.plotly_chart(fig_bdc, use_container_width=True)
+    
+    # BUC (Burnup Chart)
+    st.subheader("BUC (Burnup Chart)")
+    st.markdown("""
+    **When Useful:**  
+    - When there are frequent scope changes. Shows both progress and scope change.
+    - **Tip:** Ideal for status meetings to see “what’s newly added.”
+    """)
+    days = pd.date_range(start="2025-03-01", periods=15)
+    total_scope = np.linspace(100, 130, 15)
+    completed = np.linspace(0, 100, 15) + np.random.normal(0, 5, 15)
+    df_buc = pd.DataFrame({
+        "Date": days,
+        "Total Scope": total_scope,
+        "Completed": completed
+    })
+    fig_buc = go.Figure()
+    fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
+                                 mode='lines',
+                                 name='Total Scope',
+                                 line=dict(color='blue')))
+    fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Completed"],
+                                 mode='lines+markers',
+                                 name='Completed Work',
+                                 line=dict(color='orange')))
+    fig_buc.update_layout(title="Burnup Chart (BUC)",
+                          xaxis_title="Date",
+                          yaxis_title="Work Units")
+    st.plotly_chart(fig_buc, use_container_width=True)
+    
+    # EAC (Estimate at Completion)
+    st.subheader("EAC (Estimate at Completion)")
+    st.markdown("""
+    **When Useful:**  
+    - When there are deviations in time or budget.
+    - **Tip:** Incorporating EAC into EVM yields a robust cost and performance analysis.
+    """)
+    days = pd.date_range(start="2025-04-01", periods=15)
+    actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
+    forecast = actual_costs[-1] + np.linspace(0, 20000, 15)
+    df_eac = pd.DataFrame({
+        "Date": days,
+        "Actual Cost": actual_costs,
+        "Forecast Cost": forecast
+    })
+    fig_eac = go.Figure()
+    fig_eac.add_trace(go.Scatter(x=df_eac["Date"], y=df_eac["Actual Cost"],
+                                 mode='lines+markers',
+                                 name='Actual Cost',
+                                 line=dict(color='purple')))
+    fig_eac.add_trace(go.Scatter(x=df_eac["Date"], y=df_eac["Forecast Cost"],
+                                 mode='lines+markers',
+                                 name='Forecast Cost',
+                                 line=dict(dash='dash', color='gray')))
+    fig_eac.update_layout(title="Estimate at Completion (EAC)",
+                          xaxis_title="Date",
+                          yaxis_title="Cost (€)")
+    st.plotly_chart(fig_eac, use_container_width=True)
+    
     st.header("Conclusion")
     st.markdown("""
     In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. The additional charts and gauges update based on the data entered in the Data Editor tab.
@@ -277,7 +387,7 @@ with tabs[1]:
             edited_eac = sample_eac
 
     st.header("Interaktive Kennzahlen-Editoren")
-    # Interaktiver SPM Editor (mit Planned und Actual)
+    # Interaktiver SPM Editor (Planned Progress und Actual Progress)
     st.subheader("Interaktiver SPM Editor")
     sample_spm = pd.DataFrame({
         "Planned Progress": [100],
@@ -294,14 +404,13 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Fehler beim Parsen: {e}")
             edited_spm = sample_spm
-    # Berechne SPM: (Planned - Actual) / Planned * 100
     if not edited_spm.empty and edited_spm["Planned Progress"].iloc[0] > 0:
         computed_spm = (edited_spm["Planned Progress"].iloc[0] - edited_spm["Actual Progress"].iloc[0]) / edited_spm["Planned Progress"].iloc[0] * 100
         st.session_state.spm_value = round(computed_spm, 2)
         st.session_state.spm_ref = 100
         st.write(f"Berechnetes SPM: {st.session_state.spm_value:.2f} %")
     
-    # Interaktiver CCPM Editor (mit Actual Cost und Forecast Cost)
+    # Interaktiver CCPM Editor (Actual Cost und Forecast Cost)
     st.subheader("Interaktiver CCPM Editor")
     sample_ccpm = pd.DataFrame({
         "Actual Cost": [30000],
@@ -318,7 +427,6 @@ with tabs[1]:
         except Exception as e:
             st.error(f"Fehler beim Parsen: {e}")
             edited_ccpm = sample_ccpm
-    # Berechne CCPM: (Actual Cost / Forecast Cost) * 100
     if not edited_ccpm.empty and edited_ccpm["Forecast Cost"].iloc[0] > 0:
         computed_ccpm = (edited_ccpm["Actual Cost"].iloc[0] / edited_ccpm["Forecast Cost"].iloc[0]) * 100
         st.session_state.ccpm_value = round(computed_ccpm, 2)
@@ -362,7 +470,6 @@ with tabs[1]:
             st.error(f"Fehler beim Parsen: {e}")
             edited_quality = sample_quality
 
-    # Berechnung der Kennzahlen aus Safety und Quality
     st.header("Berechnung weiterer Kennzahlen")
     if not edited_safety.empty:
         safety_row = edited_safety.iloc[0]
@@ -378,4 +485,4 @@ with tabs[1]:
         st.session_state.qam_ref = 100
         st.write(f"Berechnetes QAM: {st.session_state.qam_value:.2f} %")
     
-    st.markdown("Die berechneten Kennzahlen werden in den Dashboard-Gauges angezeigt. Beim Wechseln des Tabs oder beim erneuten Ausführen der App werden alle Werte aktualisiert.")
+    st.markdown("Die berechneten Kennzahlen werden in den Dashboard-Gauges angezeigt. Beim Wechseln des Tabs oder erneuten Ausführen der App werden alle Werte aktualisiert.")
