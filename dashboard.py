@@ -3,11 +3,27 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import numpy as np
+import io
 
 # Set page configuration
 st.set_page_config(layout="wide")
 
-# Create two tabs: one for the dashboard and one for manual data editing
+# Utility: Try to use a data editor widget if available.
+def get_data_editor():
+    # Check for experimental_data_editor first
+    if hasattr(st, "experimental_data_editor"):
+        return st.experimental_data_editor
+    # Then try st.data_editor
+    elif hasattr(st, "data_editor"):
+        return st.data_editor
+    else:
+        return None
+
+data_editor = get_data_editor()
+
+# ---------------------------
+# Create two tabs: Dashboard and Data Editor
+# ---------------------------
 tabs = st.tabs(["Dashboard", "Data Editor"])
 
 # ===========================
@@ -288,8 +304,19 @@ with tabs[1]:
         "In Progress": [30, 35, 40, 45, 50],
         "Done": [10, 15, 20, 25, 30]
     })
-    edited_cfd = st.experimental_data_editor(sample_cfd, num_rows="dynamic", key="cfd")
-    
+    if data_editor is not None:
+        edited_cfd = data_editor(sample_cfd, num_rows="dynamic", key="cfd")
+    else:
+        st.info("Data editor is not available in this version of Streamlit. Please update to a newer version for interactive editing.")
+        # Fallback: show CSV text area
+        csv_cfd = sample_cfd.to_csv(index=False)
+        edited_csv_cfd = st.text_area("Edit CFD data (CSV format)", value=csv_cfd, key="cfd_txt")
+        try:
+            edited_cfd = pd.read_csv(io.StringIO(edited_csv_cfd))
+        except Exception as e:
+            st.error(f"Error parsing CSV: {e}")
+            edited_cfd = sample_cfd
+
     # BDC Data Editor
     st.subheader("BDC Data (Burndown Chart)")
     sample_bdc = pd.DataFrame({
@@ -297,8 +324,18 @@ with tabs[1]:
         "Ideal": [100, 75, 50, 25, 0],
         "Actual": [105, 80, 55, 30, 5]
     })
-    edited_bdc = st.experimental_data_editor(sample_bdc, num_rows="dynamic", key="bdc")
-    
+    if data_editor is not None:
+        edited_bdc = data_editor(sample_bdc, num_rows="dynamic", key="bdc")
+    else:
+        st.info("Data editor is not available. Please update Streamlit for interactive editing.")
+        csv_bdc = sample_bdc.to_csv(index=False)
+        edited_csv_bdc = st.text_area("Edit BDC data (CSV format)", value=csv_bdc, key="bdc_txt")
+        try:
+            edited_bdc = pd.read_csv(io.StringIO(edited_csv_bdc))
+        except Exception as e:
+            st.error(f"Error parsing CSV: {e}")
+            edited_bdc = sample_bdc
+
     # BUC Data Editor
     st.subheader("BUC Data (Burnup Chart)")
     sample_buc = pd.DataFrame({
@@ -306,8 +343,18 @@ with tabs[1]:
         "Total Scope": [100, 105, 110, 115, 120],
         "Completed": [0, 20, 40, 60, 80]
     })
-    edited_buc = st.experimental_data_editor(sample_buc, num_rows="dynamic", key="buc")
-    
+    if data_editor is not None:
+        edited_buc = data_editor(sample_buc, num_rows="dynamic", key="buc")
+    else:
+        st.info("Data editor is not available. Please update Streamlit for interactive editing.")
+        csv_buc = sample_buc.to_csv(index=False)
+        edited_csv_buc = st.text_area("Edit BUC data (CSV format)", value=csv_buc, key="buc_txt")
+        try:
+            edited_buc = pd.read_csv(io.StringIO(edited_csv_buc))
+        except Exception as e:
+            st.error(f"Error parsing CSV: {e}")
+            edited_buc = sample_buc
+
     # EAC Data Editor
     st.subheader("EAC Data (Estimate at Completion)")
     sample_eac = pd.DataFrame({
@@ -315,6 +362,16 @@ with tabs[1]:
         "Actual Cost": [0, 10000, 20000, 30000, 40000],
         "Forecast Cost": [50000, 50000, 50000, 50000, 50000]
     })
-    edited_eac = st.experimental_data_editor(sample_eac, num_rows="dynamic", key="eac")
-    
+    if data_editor is not None:
+        edited_eac = data_editor(sample_eac, num_rows="dynamic", key="eac")
+    else:
+        st.info("Data editor is not available. Please update Streamlit for interactive editing.")
+        csv_eac = sample_eac.to_csv(index=False)
+        edited_csv_eac = st.text_area("Edit EAC data (CSV format)", value=csv_eac, key="eac_txt")
+        try:
+            edited_eac = pd.read_csv(io.StringIO(edited_csv_eac))
+        except Exception as e:
+            st.error(f"Error parsing CSV: {e}")
+            edited_eac = sample_eac
+
     st.markdown("Feel free to modify the tables above. These data are only used for manual editing and do not automatically update the Dashboard tab.")
