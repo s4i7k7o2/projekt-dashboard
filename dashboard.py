@@ -7,9 +7,7 @@ import numpy as np
 # Set page configuration
 st.set_page_config(layout="wide")
 
-# --------------------------------------------------------------------
 # Create two tabs: one for the dashboard and one for manual data editing
-# --------------------------------------------------------------------
 tabs = st.tabs(["Dashboard", "Data Editor"])
 
 # ===========================
@@ -320,4 +318,3 @@ with tabs[1]:
     edited_eac = st.experimental_data_editor(sample_eac, num_rows="dynamic", key="eac")
     
     st.markdown("Feel free to modify the tables above. These data are only used for manual editing and do not automatically update the Dashboard tab.")
-
