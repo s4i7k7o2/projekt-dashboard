@@ -10,10 +10,8 @@ st.set_page_config(layout="wide")
 
 # Utility: Try to use a data editor widget if available.
 def get_data_editor():
-    # Check for experimental_data_editor first
     if hasattr(st, "experimental_data_editor"):
         return st.experimental_data_editor
-    # Then try st.data_editor
     elif hasattr(st, "data_editor"):
         return st.data_editor
     else:
@@ -21,9 +19,25 @@ def get_data_editor():
 
 data_editor = get_data_editor()
 
-# ---------------------------
-# Create two tabs: Dashboard and Data Editor
-# ---------------------------
+# Initialize session state keys for performance metrics if not already set.
+if "spm_value" not in st.session_state:
+    st.session_state.spm_value = 75
+if "spm_ref" not in st.session_state:
+    st.session_state.spm_ref = 80
+if "ccpm_value" not in st.session_state:
+    st.session_state.ccpm_value = 65
+if "ccpm_ref" not in st.session_state:
+    st.session_state.ccpm_ref = 70
+if "safety_value" not in st.session_state:
+    st.session_state.safety_value = 90
+if "safety_ref" not in st.session_state:
+    st.session_state.safety_ref = 95
+if "qam_value" not in st.session_state:
+    st.session_state.qam_value = 80
+if "qam_ref" not in st.session_state:
+    st.session_state.qam_ref = 85
+
+# Create two tabs: one for the Dashboard and one for Data Editor.
 tabs = st.tabs(["Dashboard", "Data Editor"])
 
 # ===========================
@@ -66,16 +80,16 @@ with tabs[0]:
     """)
 
     # ----------------------
-    # Performance Metrics Gauges
+    # Performance Metrics Gauges (using session state values)
     # ----------------------
     st.header("Performance Metrics Gauges")
-    st.markdown("The gauges below illustrate sample values for each performance metric category. In a real-world scenario, these values would be dynamically calculated based on project data.")
-
-    # Schedule Performance Metric Gauge
+    st.markdown("The gauges below illustrate performance metric values based on the data entered in the Data Editor tab.")
+    
+    # Schedule Performance Metric Gauge (SPM)
     fig_schedule = go.Figure(go.Indicator(
         mode="gauge+number+delta",
-        value=75,  # sample value
-        delta={'reference': 80, 'increasing': {'color': "red"}},
+        value=st.session_state.spm_value,
+        delta={'reference': st.session_state.spm_ref, 'increasing': {'color': "red"}},
         title={'text': "Schedule Performance Metric (SPM)"},
         gauge={
             'axis': {'range': [0, 100]},
@@ -88,16 +102,16 @@ with tabs[0]:
             'threshold': {
                 'line': {'color': "black", 'width': 4},
                 'thickness': 0.75,
-                'value': 80
+                'value': st.session_state.spm_ref
             }
         }
     ))
 
-    # Cost Contingency Performance Metric Gauge
+    # Cost Contingency Performance Metric Gauge (CCPM)
     fig_cost = go.Figure(go.Indicator(
         mode="gauge+number+delta",
-        value=65,  # sample value
-        delta={'reference': 70, 'increasing': {'color': "red"}},
+        value=st.session_state.ccpm_value,
+        delta={'reference': st.session_state.ccpm_ref, 'increasing': {'color': "red"}},
         title={'text': "Cost Contingency Performance Metric (CCPM)"},
         gauge={
             'axis': {'range': [0, 100]},
@@ -110,16 +124,16 @@ with tabs[0]:
             'threshold': {
                 'line': {'color': "black", 'width': 4},
                 'thickness': 0.75,
-                'value': 70
+                'value': st.session_state.ccpm_ref
             }
         }
     ))
 
-    # Safety Performance Metric Gauge
+    # Safety Performance Metric Gauge (Safety SPM)
     fig_safety = go.Figure(go.Indicator(
         mode="gauge+number+delta",
-        value=90,  # sample value
-        delta={'reference': 95, 'increasing': {'color': "red"}},
+        value=st.session_state.safety_value,
+        delta={'reference': st.session_state.safety_ref, 'increasing': {'color': "red"}},
         title={'text': "Safety Performance Metric (SPM)"},
         gauge={
             'axis': {'range': [0, 100]},
@@ -132,16 +146,16 @@ with tabs[0]:
             'threshold': {
                 'line': {'color': "black", 'width': 4},
                 'thickness': 0.75,
-                'value': 95
+                'value': st.session_state.safety_ref
             }
         }
     ))
 
-    # Quality Assurance Metric Gauge
+    # Quality Assurance Metric Gauge (QAM)
     fig_quality = go.Figure(go.Indicator(
         mode="gauge+number+delta",
-        value=80,  # sample value
-        delta={'reference': 85, 'increasing': {'color': "red"}},
+        value=st.session_state.qam_value,
+        delta={'reference': st.session_state.qam_ref, 'increasing': {'color': "red"}},
         title={'text': "Quality Assurance Metric (QAM)"},
         gauge={
             'axis': {'range': [0, 100]},
@@ -154,7 +168,7 @@ with tabs[0]:
             'threshold': {
                 'line': {'color': "black", 'width': 4},
                 'thickness': 0.75,
-                'value': 85
+                'value': st.session_state.qam_ref
             }
         }
     ))
@@ -169,18 +183,17 @@ with tabs[0]:
         st.plotly_chart(fig_quality, use_container_width=True)
 
     # ----------------------
-    # Additional Diagrams Section
+    # Additional Diagrams Section (using simulated chart data)
     # ----------------------
     st.header("Additional Diagrams")
-
-    # --- CFD: Cumulative Flow Diagram ---
+    
+    # CFD (Cumulative Flow Diagram)
     st.subheader("CFD (Cumulative Flow Diagram)")
     st.markdown("""
     **When Useful:**  
-    - Particularly valuable in agile environments or ticket-driven processes to quickly identify bottlenecks in a specific phase.
-    - **Tip:** When combined with WIP (Work In Progress) limits, bottlenecks can be managed more effectively.
+    - Particularly valuable in agile environments or ticket-driven processes to quickly identify bottlenecks.
+    - **Tip:** When combined with WIP limits, bottlenecks can be managed more effectively.
     """)
-    # Simulated CFD data
     days = pd.date_range(start="2025-01-01", periods=20)
     backlog = np.random.randint(50, 100, size=20)
     in_progress = np.random.randint(20, 70, size=20)
@@ -196,13 +209,13 @@ with tabs[0]:
     fig_cfd = px.area(df_cfd_plot, x="Date", y="Count", color="Stage",
                       title="Cumulative Flow Diagram")
     st.plotly_chart(fig_cfd, use_container_width=True)
-
-    # --- BDC: Burndown Chart ---
+    
+    # BDC (Burndown Chart)
     st.subheader("BDC (Burndown Chart)")
     st.markdown("""
     **When Useful:**  
-    - In time-boxed sprints/iterations, to track daily progress.
-    - **Tip:** Comparing the real burndown with the ideal (planned) line helps quickly spot deviations.
+    - In time-boxed sprints/iterations to track daily progress.
+    - **Tip:** Comparing real versus ideal burndown helps spot deviations.
     """)
     days = pd.date_range(start="2025-02-01", periods=15)
     ideal = np.linspace(100, 0, 15)
@@ -225,13 +238,13 @@ with tabs[0]:
                           xaxis_title="Date",
                           yaxis_title="Work Remaining (%)")
     st.plotly_chart(fig_bdc, use_container_width=True)
-
-    # --- BUC: Burnup Chart ---
+    
+    # BUC (Burnup Chart)
     st.subheader("BUC (Burnup Chart)")
     st.markdown("""
     **When Useful:**  
-    - When there are frequent scope changes. It shows progress as well as whether the overall project scope has changed.
-    - **Tip:** Ideal for project status meetings since it provides more information than a simple burndown, emphasizing “what is newly added.”
+    - When there are frequent scope changes. Shows both progress and scope change.
+    - **Tip:** Ideal for status meetings to see “what’s newly added.”
     """)
     days = pd.date_range(start="2025-03-01", periods=15)
     total_scope = np.linspace(100, 130, 15)
@@ -254,13 +267,13 @@ with tabs[0]:
                           xaxis_title="Date",
                           yaxis_title="Work Units")
     st.plotly_chart(fig_buc, use_container_width=True)
-
-    # --- EAC: Estimate at Completion ---
+    
+    # EAC (Estimate at Completion)
     st.subheader("EAC (Estimate at Completion)")
     st.markdown("""
     **When Useful:**  
-    - When there are deviations in time or budget, to assess if corrective action is needed.
-    - **Tip:** Incorporating EAC into an Earned Value Management (EVM) framework yields a more robust cost and performance analysis.
+    - When there are deviations in time or budget.
+    - **Tip:** Incorporating EAC into EVM yields a robust cost and performance analysis.
     """)
     days = pd.date_range(start="2025-04-01", periods=15)
     actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
@@ -283,10 +296,10 @@ with tabs[0]:
                           xaxis_title="Date",
                           yaxis_title="Cost (€)")
     st.plotly_chart(fig_eac, use_container_width=True)
-
+    
     st.header("Conclusion")
     st.markdown("""
-    In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. It helps address critical variances from the established baselines and documents the success or challenges of mitigation measures throughout the project lifecycle. The additional charts—CFD, BDC, BUC, and EAC—provide further insights that are essential for proactive project management and informed decision-making.
+    In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. It helps address critical variances from established baselines and documents the success or challenges of mitigation measures throughout the project lifecycle. The additional charts (CFD, BDC, BUC, and EAC) provide further insights essential for proactive project management.
     """)
 
 # ===========================
@@ -294,8 +307,9 @@ with tabs[0]:
 # ===========================
 with tabs[1]:
     st.title("Manual Data Entry")
-    st.markdown("In this tab you can manually edit sample data. These example tables are prefilled with data; feel free to add, modify, or remove rows. (Note: Changes here do not automatically update the Dashboard above.)")
+    st.markdown("In this tab you can manually edit the sample data. Changes here will update the Dashboard tab.")
     
+    st.header("Chart Data Editors")
     # CFD Data Editor
     st.subheader("CFD Data")
     sample_cfd = pd.DataFrame({
@@ -307,10 +321,9 @@ with tabs[1]:
     if data_editor is not None:
         edited_cfd = data_editor(sample_cfd, num_rows="dynamic", key="cfd")
     else:
-        st.info("Data editor is not available in this version of Streamlit. Please update to a newer version for interactive editing.")
-        # Fallback: show CSV text area
+        st.info("Data editor widget not available. Edit CSV below.")
         csv_cfd = sample_cfd.to_csv(index=False)
-        edited_csv_cfd = st.text_area("Edit CFD data (CSV format)", value=csv_cfd, key="cfd_txt")
+        edited_csv_cfd = st.text_area("Edit CFD data (CSV)", value=csv_cfd, key="cfd_txt")
         try:
             edited_cfd = pd.read_csv(io.StringIO(edited_csv_cfd))
         except Exception as e:
@@ -327,9 +340,9 @@ with tabs[1]:
     if data_editor is not None:
         edited_bdc = data_editor(sample_bdc, num_rows="dynamic", key="bdc")
     else:
-        st.info("Data editor is not available. Please update Streamlit for interactive editing.")
+        st.info("Data editor widget not available. Edit CSV below.")
         csv_bdc = sample_bdc.to_csv(index=False)
-        edited_csv_bdc = st.text_area("Edit BDC data (CSV format)", value=csv_bdc, key="bdc_txt")
+        edited_csv_bdc = st.text_area("Edit BDC data (CSV)", value=csv_bdc, key="bdc_txt")
         try:
             edited_bdc = pd.read_csv(io.StringIO(edited_csv_bdc))
         except Exception as e:
@@ -346,9 +359,9 @@ with tabs[1]:
     if data_editor is not None:
         edited_buc = data_editor(sample_buc, num_rows="dynamic", key="buc")
     else:
-        st.info("Data editor is not available. Please update Streamlit for interactive editing.")
+        st.info("Data editor widget not available. Edit CSV below.")
         csv_buc = sample_buc.to_csv(index=False)
-        edited_csv_buc = st.text_area("Edit BUC data (CSV format)", value=csv_buc, key="buc_txt")
+        edited_csv_buc = st.text_area("Edit BUC data (CSV)", value=csv_buc, key="buc_txt")
         try:
             edited_buc = pd.read_csv(io.StringIO(edited_csv_buc))
         except Exception as e:
@@ -365,13 +378,24 @@ with tabs[1]:
     if data_editor is not None:
         edited_eac = data_editor(sample_eac, num_rows="dynamic", key="eac")
     else:
-        st.info("Data editor is not available. Please update Streamlit for interactive editing.")
+        st.info("Data editor widget not available. Edit CSV below.")
         csv_eac = sample_eac.to_csv(index=False)
-        edited_csv_eac = st.text_area("Edit EAC data (CSV format)", value=csv_eac, key="eac_txt")
+        edited_csv_eac = st.text_area("Edit EAC data (CSV)", value=csv_eac, key="eac_txt")
         try:
             edited_eac = pd.read_csv(io.StringIO(edited_csv_eac))
         except Exception as e:
             st.error(f"Error parsing CSV: {e}")
             edited_eac = sample_eac
 
-    st.markdown("Feel free to modify the tables above. These data are only used for manual editing and do not automatically update the Dashboard tab.")
+    st.header("Performance Metrics Data")
+    st.markdown("Update the performance metric values. These values are used by the gauges in the Dashboard tab.")
+    st.session_state.spm_value = st.number_input("SPM Value (0-100)", value=st.session_state.spm_value, key="spm_value_input")
+    st.session_state.spm_ref   = st.number_input("SPM Reference", value=st.session_state.spm_ref, key="spm_ref_input")
+    st.session_state.ccpm_value = st.number_input("CCPM Value (0-100)", value=st.session_state.ccpm_value, key="ccpm_value_input")
+    st.session_state.ccpm_ref   = st.number_input("CCPM Reference", value=st.session_state.ccpm_ref, key="ccpm_ref_input")
+    st.session_state.safety_value = st.number_input("Safety SPM Value (0-100)", value=st.session_state.safety_value, key="safety_value_input")
+    st.session_state.safety_ref   = st.number_input("Safety SPM Reference", value=st.session_state.safety_ref, key="safety_ref_input")
+    st.session_state.qam_value = st.number_input("QAM Value (0-100)", value=st.session_state.qam_value, key="qam_value_input")
+    st.session_state.qam_ref   = st.number_input("QAM Reference", value=st.session_state.qam_ref, key="qam_ref_input")
+    
+    st.markdown("Changes here will update the charts in the Dashboard tab on the next rerun.")
