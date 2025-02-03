@@ -29,36 +29,42 @@ def convert_date(date_series):
 # Default-Daten für die Diagramme
 # -------------------------------
 def default_cfd():
-    dates = pd.date_range(start="2025-01-01", periods=5).strftime('%d.%m.%Y')
+    dates = pd.date_range(start="2025-01-02", periods=20).strftime('%d.%m.%Y')
     return pd.DataFrame({
         "Date": dates,
-        "Backlog": [80, 75, 70, 65, 60],
-        "In Progress": [30, 35, 40, 45, 50],
-        "Done": [10, 15, 20, 25, 30]
+        "Backlog": np.random.randint(50, 100, size=20),
+        "In Progress": np.random.randint(20, 70, size=20),
+        "Done": np.random.randint(10, 50, size=20)
     })
 
 def default_bdc():
-    dates = pd.date_range(start="2025-02-01", periods=5).strftime('%d.%m.%Y')
+    dates = pd.date_range(start="2025-02-01", periods=15).strftime('%d.%m.%Y')
+    ideal = np.linspace(100, 0, 15)
+    actual = ideal + np.random.normal(0, 5, 15)
     return pd.DataFrame({
         "Date": dates,
-        "Ideal": [100, 75, 50, 25, 0],
-        "Actual": [105, 80, 55, 30, 5]
+        "Ideal": ideal,
+        "Actual": actual
     })
 
 def default_buc():
-    dates = pd.date_range(start="2025-03-01", periods=5).strftime('%d.%m.%Y')
+    dates = pd.date_range(start="2025-03-01", periods=15).strftime('%d.%m.%Y')
+    total_scope = np.linspace(100, 130, 15)
+    completed = np.linspace(0, 100, 15) + np.random.normal(0, 5, 15)
     return pd.DataFrame({
         "Date": dates,
-        "Total Scope": [100, 105, 110, 115, 120],
-        "Completed": [0, 20, 40, 60, 80]
+        "Total Scope": total_scope,
+        "Completed": completed
     })
 
 def default_eac():
-    dates = pd.date_range(start="2025-04-01", periods=5).strftime('%d.%m.%Y')
+    dates = pd.date_range(start="2025-04-01", periods=15).strftime('%d.%m.%Y')
+    actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
+    forecast = actual_costs[-1] + np.linspace(0, 20000, 15)
     return pd.DataFrame({
         "Date": dates,
-        "Actual Cost": [0, 10000, 20000, 30000, 40000],
-        "Forecast Cost": [50000, 50000, 50000, 50000, 50000]
+        "Actual Cost": actual_costs,
+        "Forecast Cost": forecast
     })
 
 # -------------------------------
@@ -75,7 +81,7 @@ for dept in ["Gov", "Risk", "Audit"]:
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# Basiswerte für Kennzahlen (Beispielwerte)
+# Beispiel-Basiswerte für Kennzahlen
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -160,12 +166,12 @@ st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    
-    # CFD – Gestufte Darstellung als Stacked Area Chart mit Ecken (line_shape='hv')
+    # CFD: Gestapelte Darstellung als Stacked Area Chart mit line_shape 'linear' (ZickZag)
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
     fig_cfd = go.Figure()
+    # Verwende line_shape 'linear', um direkt von Punkt zu Punkt zu verbinden (so entsteht ein zickzackartiger Verlauf)
     for stage, col, trace_color in zip(["Backlog", "In Progress", "Done"],
                                        ["Backlog", "In Progress", "Done"],
                                        ["#1f77b4", "#ff7f0e", "#2ca02c"]):
@@ -175,7 +181,7 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
             mode="lines",
             name=stage,
             stackgroup="one",
-            line=dict(color=trace_color, width=2, shape='hv'),
+            line=dict(color=trace_color, width=2, shape="linear"),
             hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
         ))
     fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
@@ -227,10 +233,10 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render-Diagramme abhängig von der Auswahl in der Sidebar
+# Render-Diagramme je nach Auswahl in der Sidebar
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus den drei Unterabteilungen
+    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -247,7 +253,7 @@ if selected_dept == "GRA-Overall":
             mode="lines",
             name=stage,
             stackgroup="one",
-            line=dict(color=trace_color, width=2, shape='hv'),
+            line=dict(color=trace_color, width=2, shape="linear"),
             hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
         ))
     fig_overall_cfd.update_layout(title="Overall GRA – Cumulative Flow Diagram (CFD)",
@@ -350,7 +356,7 @@ else:
                 mode="lines",
                 name=stage,
                 stackgroup="one",
-                line=dict(color=trace_color, width=2, shape='hv'),
+                line=dict(color=trace_color, width=2, shape="linear"),
                 hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
             ))
         fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
