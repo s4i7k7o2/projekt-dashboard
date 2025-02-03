@@ -1,328 +1,150 @@
 import streamlit as st
-import plotly.graph_objects as go
-import plotly.express as px
 import pandas as pd
-import numpy as np
-import io
 
-# Seitenkonfiguration
-st.set_page_config(layout="wide", page_title="GRA Dashboard")
+st.set_page_config(page_title="GRA Reporting", layout="wide")
 
-# -------------------------------
-# Hilfsfunktionen
-# -------------------------------
-def get_data_editor():
-    if hasattr(st, "experimental_data_editor"):
-        return st.experimental_data_editor
-    elif hasattr(st, "data_editor"):
-        return st.data_editor
-    else:
-        return None
+# Hilfsfunktion: Parsen eines Komma-separierten Strings in eine Liste von Zahlen
+def parse_input_data(input_str):
+    try:
+        return [float(x.strip()) for x in input_str.split(',') if x.strip() != ""]
+    except Exception as e:
+        st.error("Fehler beim Parsen der Daten. Bitte Komma-separierte Zahlen eingeben.")
+        return []
 
-data_editor = get_data_editor()
-
-def convert_date(date_series):
-    return pd.to_datetime(date_series, format='%d.%m.%Y', dayfirst=True)
-
-# -------------------------------
-# Default-Daten für die Diagramme
-# -------------------------------
-def default_cfd():
-    dates = pd.date_range(start="2025-01-01", periods=5).strftime('%d.%m.%Y')
-    return pd.DataFrame({
-        "Date": dates,
-        "Backlog": [80, 75, 70, 65, 60],
-        "In Progress": [30, 35, 40, 45, 50],
-        "Done": [10, 15, 20, 25, 30]
-    })
-
-def default_bdc():
-    dates = pd.date_range(start="2025-02-01", periods=5).strftime('%d.%m.%Y')
-    return pd.DataFrame({
-        "Date": dates,
-        "Ideal": [100, 75, 50, 25, 0],
-        "Actual": [105, 80, 55, 30, 5]
-    })
-
-def default_buc():
-    dates = pd.date_range(start="2025-03-01", periods=5).strftime('%d.%m.%Y')
-    return pd.DataFrame({
-        "Date": dates,
-        "Total Scope": [100, 105, 110, 115, 120],
-        "Completed": [0, 20, 40, 60, 80]
-    })
-
-def default_eac():
-    dates = pd.date_range(start="2025-04-01", periods=5).strftime('%d.%m.%Y')
-    return pd.DataFrame({
-        "Date": dates,
-        "Actual Cost": [0, 10000, 20000, 30000, 40000],
-        "Forecast Cost": [50000, 50000, 50000, 50000, 50000]
-    })
-
-# -------------------------------
-# Initialisiere Session State
-# -------------------------------
-for dept in ["Gov", "Risk", "Audit"]:
-    if f"{dept}_CFD" not in st.session_state:
-        st.session_state[f"{dept}_CFD"] = default_cfd()
-    if f"{dept}_BDC" not in st.session_state:
-        st.session_state[f"{dept}_BDC"] = default_bdc()
-    if f"{dept}_BUC" not in st.session_state:
-        st.session_state[f"{dept}_BUC"] = default_buc()
-
-if "EAC" not in st.session_state:
-    st.session_state["EAC"] = default_eac()
-
-if "spm_value" not in st.session_state:
-    st.session_state.spm_value = 75
-if "spm_ref" not in st.session_state:
-    st.session_state.spm_ref = 100
-if "ccpm_value" not in st.session_state:
-    st.session_state.ccpm_value = 80
-if "ccpm_ref" not in st.session_state:
-    st.session_state.ccpm_ref = 100
-if "safety_value" not in st.session_state:
-    st.session_state.safety_value = 60
-if "safety_ref" not in st.session_state:
-    st.session_state.safety_ref = 100
-if "qam_value" not in st.session_state:
-    st.session_state.qam_value = 90
-if "qam_ref" not in st.session_state:
-    st.session_state.qam_ref = 100
-
-# -------------------------------
-# Sidebar: Abteilungsauswahl und Data Editor
-# -------------------------------
-selected_dept = st.sidebar.selectbox(
-    "Wähle eine Abteilung:",
-    options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
-)
-
-if selected_dept == "GRA-Overall":
-    st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
-    if data_editor is not None:
-        edited = data_editor(st.session_state["EAC"], num_rows="dynamic", key="EAC_editor")
-    else:
-        csv_text = st.text_area("EAC Daten (CSV)", value=st.session_state["EAC"].to_csv(index=False), key="EAC_csv")
-        try:
-            edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-        except Exception as e:
-            st.error(f"Fehler beim Parsen: {e}")
-            edited = st.session_state["EAC"]
-    st.session_state["EAC"] = edited
-else:
-    dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
-    st.sidebar.markdown(f"### Data Editor für {selected_dept}")
-    with st.sidebar.expander(f"{selected_dept} – CFD Daten"):
-        if data_editor is not None:
-            edited = data_editor(st.session_state[f"{dept_key}_CFD"], num_rows="dynamic", key=f"{dept_key}_CFD_editor")
+# Funktion, die in einem Tab die Eingabefelder und Diagramme (CFD, BDC, BUC) anzeigt.
+def render_department_tab(department_name, prefix):
+    st.header(department_name)
+    # Wir nutzen zwei Spalten, um links (simulierte Sidebar) die Dateneingabe und rechts die Diagramme anzuzeigen.
+    col_sidebar, col_charts = st.columns([1, 3])
+    
+    with col_sidebar:
+        st.subheader("Daten eingeben")
+        # Textfelder zur Eingabe der Daten (als Komma-separierte Zahlen)
+        cfd_input = st.text_area("CFD Daten (z. B. 1,2,3,4,5)", key=f"{prefix}_cfd", value="1,2,3,4,5")
+        bdc_input = st.text_area("BDC Daten (z. B. 5,4,3,2,1)", key=f"{prefix}_bdc", value="5,4,3,2,1")
+        buc_input = st.text_area("BUC Daten (z. B. 1,2,3,4,5)", key=f"{prefix}_buc", value="1,2,3,4,5")
+    
+    with col_charts:
+        # CFD Diagramm
+        st.subheader("CFD Diagramm")
+        cfd_data = parse_input_data(cfd_input)
+        if cfd_data:
+            df_cfd = pd.DataFrame({"Index": range(len(cfd_data)), "CFD": cfd_data})
+            st.line_chart(df_cfd.set_index("Index"))
         else:
-            csv_text = st.text_area(f"CFD {selected_dept} (CSV)", value=st.session_state[f"{dept_key}_CFD"].to_csv(index=False), key=f"{dept_key}_CFD_csv")
-            try:
-                edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-            except Exception as e:
-                st.error(f"Fehler beim Parsen: {e}")
-                edited = st.session_state[f"{dept_key}_CFD"]
-        st.session_state[f"{dept_key}_CFD"] = edited
-
-    with st.sidebar.expander(f"{selected_dept} – BDC Daten"):
-        if data_editor is not None:
-            edited = data_editor(st.session_state[f"{dept_key}_BDC"], num_rows="dynamic", key=f"{dept_key}_BDC_editor")
+            st.info("Keine gültigen CFD-Daten vorhanden.")
+            
+        # BDC Diagramm
+        st.subheader("BDC Diagramm")
+        bdc_data = parse_input_data(bdc_input)
+        if bdc_data:
+            df_bdc = pd.DataFrame({"Index": range(len(bdc_data)), "BDC": bdc_data})
+            st.line_chart(df_bdc.set_index("Index"))
         else:
-            csv_text = st.text_area(f"BDC {selected_dept} (CSV)", value=st.session_state[f"{dept_key}_BDC"].to_csv(index=False), key=f"{dept_key}_BDC_csv")
-            try:
-                edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-            except Exception as e:
-                st.error(f"Fehler beim Parsen: {e}")
-                edited = st.session_state[f"{dept_key}_BDC"]
-        st.session_state[f"{dept_key}_BDC"] = edited
-
-    with st.sidebar.expander(f"{selected_dept} – BUC Daten"):
-        if data_editor is not None:
-            edited = data_editor(st.session_state[f"{dept_key}_BUC"], num_rows="dynamic", key=f"{dept_key}_BUC_editor")
+            st.info("Keine gültigen BDC-Daten vorhanden.")
+            
+        # BUC Diagramm
+        st.subheader("BUC Diagramm")
+        buc_data = parse_input_data(buc_input)
+        if buc_data:
+            df_buc = pd.DataFrame({"Index": range(len(buc_data)), "BUC": buc_data})
+            st.line_chart(df_buc.set_index("Index"))
         else:
-            csv_text = st.text_area(f"BUC {selected_dept} (CSV)", value=st.session_state[f"{dept_key}_BUC"].to_csv(index=False), key=f"{dept_key}_BUC_csv")
-            try:
-                edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-            except Exception as e:
-                st.error(f"Fehler beim Parsen: {e}")
-                edited = st.session_state[f"{dept_key}_BUC"]
-        st.session_state[f"{dept_key}_BUC"] = edited
+            st.info("Keine gültigen BUC-Daten vorhanden.")
+            
+        with st.expander("Weitere Diagramme"):
+            st.write("• Gantt Chart (Platzhalter)")
+            st.write("• Heatmap (Platzhalter)")
+            st.write("• Dashboard (Platzhalter)")
 
-# -------------------------------
-# Main-Bereich: Darstellung der Diagramme
-# -------------------------------
-st.title(f"{selected_dept} Dashboard")
-
-def render_charts_for_dept(dept_key, dept_name, color_scheme):
-    st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    # CFD
-    df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
-    df_cfd["Date"] = convert_date(df_cfd["Date"])
-    df_cfd = df_cfd.sort_values("Date")
-    df_cfd_melt = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
-                               var_name="Stage", value_name="Count")
-    fig_cfd = px.area(df_cfd_melt, x="Date", y="Count", color="Stage",
-                      category_orders={"Stage": ["Backlog", "In Progress", "Done"]},
-                      title=f"{dept_name} – Cumulative Flow Diagram (CFD)")
-    fig_cfd.update_xaxes(tickformat="%d.%m.%Y")
-    st.plotly_chart(fig_cfd, use_container_width=True)
+# Funktion, die im Overall-Tab die aggregierten Daten der drei Unterabteilungen anzeigt
+def render_overall_tab():
+    st.header("GRA (Overall)")
+    col_sidebar, col_charts = st.columns([1, 3])
     
-    # BDC
-    df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
-    df_bdc["Date"] = convert_date(df_bdc["Date"])
-    df_bdc = df_bdc.sort_values("Date")
-    fig_bdc = go.Figure()
-    fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
-                                 mode='lines', name='Ideal Burndown',
-                                 line=dict(dash='dash', color='green')))
-    fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Actual"],
-                                 mode='lines+markers', name='Actual Burndown',
-                                 line=dict(color='red')))
-    fig_bdc.update_layout(title=f"{dept_name} – Burndown Chart (BDC)",
-                          xaxis_title="Date", yaxis_title="Work Remaining (%)",
-                          xaxis=dict(tickformat="%d.%m.%Y"))
-    st.plotly_chart(fig_bdc, use_container_width=True)
+    with col_sidebar:
+        st.subheader("Daten eingeben")
+        # Hier können zusätzlich EAC-Daten eingegeben werden – diese werden nur im Overall-Tab angezeigt.
+        eac_input = st.text_area("EAC Daten (z. B. 10,9,8,7,6)", key="overall_eac", value="10,9,8,7,6")
+        st.write("Aggregierte Daten aus Governance, Risk und Audit & Assessment werden automatisch berechnet.")
     
-    # BUC
-    df_buc = st.session_state[f"{dept_key}_BUC"].copy()
-    df_buc["Date"] = convert_date(df_buc["Date"])
-    df_buc = df_buc.sort_values("Date")
-    fig_buc = go.Figure()
-    fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
-                                 mode='lines', name='Total Scope',
-                                 line=dict(color=color_scheme)))
-    fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Completed"],
-                                 mode='lines+markers', name='Completed',
-                                 line=dict(color='orange')))
-    fig_buc.update_layout(title=f"{dept_name} – Burnup Chart (BUC)",
-                          xaxis_title="Date", yaxis_title="Work Units",
-                          xaxis=dict(tickformat="%d.%m.%Y"))
-    st.plotly_chart(fig_buc, use_container_width=True)
-
-if selected_dept == "GRA-Overall":
-    st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus den drei Unterabteilungen
-    dfs_cfd = []
-    for dept in ["Gov", "Risk", "Audit"]:
-        df = st.session_state[f"{dept}_CFD"].copy()
-        df["Date"] = convert_date(df["Date"])
-        dfs_cfd.append(df)
-    df_overall_cfd = pd.concat(dfs_cfd).groupby("Date", as_index=False).sum()
-    df_overall_cfd_melt = df_overall_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
-                                              var_name="Stage", value_name="Count")
-    fig_overall_cfd = px.area(df_overall_cfd_melt, x="Date", y="Count", color="Stage",
-                              category_orders={"Stage": ["Backlog", "In Progress", "Done"]},
-                              title="Overall GRA – Cumulative Flow Diagram (CFD)")
-    fig_overall_cfd.update_xaxes(tickformat="%d.%m.%Y")
-    st.plotly_chart(fig_overall_cfd, use_container_width=True)
-    
-    # Aggregiere BDC-Daten
-    dfs_bdc = []
-    for dept in ["Gov", "Risk", "Audit"]:
-        df = st.session_state[f"{dept}_BDC"].copy()
-        df["Date"] = convert_date(df["Date"])
-        dfs_bdc.append(df)
-    df_overall_bdc = pd.concat(dfs_bdc).groupby("Date", as_index=False).sum()
-    fig_overall_bdc = go.Figure()
-    fig_overall_bdc.add_trace(go.Scatter(x=df_overall_bdc["Date"], y=df_overall_bdc["Ideal"],
-                                         mode='lines', name='Ideal Burndown',
-                                         line=dict(dash='dash', color='green')))
-    fig_overall_bdc.add_trace(go.Scatter(x=df_overall_bdc["Date"], y=df_overall_bdc["Actual"],
-                                         mode='lines+markers', name='Actual Burndown',
-                                         line=dict(color='red')))
-    fig_overall_bdc.update_layout(title="Overall GRA – Burndown Chart (BDC)",
-                                  xaxis_title="Date", yaxis_title="Work Remaining (%)",
-                                  xaxis=dict(tickformat="%d.%m.%Y"))
-    st.plotly_chart(fig_overall_bdc, use_container_width=True)
-    
-    # Aggregiere BUC-Daten
-    dfs_buc = []
-    for dept in ["Gov", "Risk", "Audit"]:
-        df = st.session_state[f"{dept}_BUC"].copy()
-        df["Date"] = convert_date(df["Date"])
-        dfs_buc.append(df)
-    df_overall_buc = pd.concat(dfs_buc).groupby("Date", as_index=False).sum()
-    fig_overall_buc = go.Figure()
-    fig_overall_buc.add_trace(go.Scatter(x=df_overall_buc["Date"], y=df_overall_buc["Total Scope"],
-                                         mode='lines', name='Total Scope',
-                                         line=dict(color='purple')))
-    fig_overall_buc.add_trace(go.Scatter(x=df_overall_buc["Date"], y=df_overall_buc["Completed"],
-                                         mode='lines+markers', name='Completed',
-                                         line=dict(color='orange')))
-    fig_overall_buc.update_layout(title="Overall GRA – Burnup Chart (BUC)",
-                                  xaxis_title="Date", yaxis_title="Work Units",
-                                  xaxis=dict(tickformat="%d.%m.%Y"))
-    st.plotly_chart(fig_overall_buc, use_container_width=True)
-    
-    # EAC Diagramm (nur im Overall-Tab)
-    df_overall_eac = st.session_state["EAC"].copy()
-    df_overall_eac["Date"] = convert_date(df_overall_eac["Date"])
-    df_overall_eac = df_overall_eac.sort_values("Date")
-    fig_overall_eac = go.Figure()
-    fig_overall_eac.add_trace(go.Scatter(x=df_overall_eac["Date"], y=df_overall_eac["Actual Cost"],
-                                         mode='lines+markers', name='Actual Cost',
-                                         line=dict(color='brown')))
-    fig_overall_eac.add_trace(go.Scatter(x=df_overall_eac["Date"], y=df_overall_eac["Forecast Cost"],
-                                         mode='lines+markers', name='Forecast Cost',
-                                         line=dict(dash='dash', color='gray')))
-    fig_overall_eac.update_layout(title="Overall GRA – Estimate at Completion (EAC)",
-                                  xaxis_title="Date", yaxis_title="Cost (€)",
-                                  xaxis=dict(tickformat="%d.%m.%Y"))
-    st.plotly_chart(fig_overall_eac, use_container_width=True)
-    
-    st.markdown("### Conclusion")
-    st.markdown("""
-    Die aggregierten Daten der Unterabteilungen werden hier zusammengeführt.
-    Änderungen im Data Editor (Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
-    """)
-else:
-    dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
-    def render_charts_for_dept(dept_key, dept_name, color_scheme):
-        st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-        # CFD
-        df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
-        df_cfd["Date"] = convert_date(df_cfd["Date"])
-        df_cfd = df_cfd.sort_values("Date")
-        df_cfd_melt = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
-                                   var_name="Stage", value_name="Count")
-        fig_cfd = px.area(df_cfd_melt, x="Date", y="Count", color="Stage",
-                          category_orders={"Stage": ["Backlog", "In Progress", "Done"]},
-                          title=f"{dept_name} – Cumulative Flow Diagram (CFD)")
-        fig_cfd.update_xaxes(tickformat="%d.%m.%Y")
-        st.plotly_chart(fig_cfd, use_container_width=True)
+    with col_charts:
+        aggregated_data = {}
+        # Für die Diagrammtypen CFD, BDC, BUC werden die Daten aus den drei Unterabteilungen (sofern vorhanden) aggregiert.
+        for chart in ["cfd", "bdc", "buc"]:
+            data_list = []
+            for dept in ["governance", "risk", "audit"]:
+                key = f"{dept}_{chart}"
+                # Prüfen, ob der jeweilige Schlüssel bereits in st.session_state vorhanden ist
+                if key in st.session_state:
+                    input_str = st.session_state[key]
+                else:
+                    # Falls in einem Untertab noch keine Eingabe erfolgt ist, wird ein Standardwert genutzt.
+                    input_str = "0,0,0,0,0"
+                parsed = parse_input_data(input_str)
+                if parsed:
+                    data_list.append(parsed)
+            # Aggregation: Elementweise Summe (sofern alle Listen mindestens die gleiche Länge haben)
+            if data_list:
+                min_len = min(len(lst) for lst in data_list)
+                trimmed = [lst[:min_len] for lst in data_list]
+                aggregated = [sum(x) for x in zip(*trimmed)]
+            else:
+                aggregated = []
+            aggregated_data[chart] = aggregated
         
-        # BDC
-        df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
-        df_bdc["Date"] = convert_date(df_bdc["Date"])
-        df_bdc = df_bdc.sort_values("Date")
-        fig_bdc = go.Figure()
-        fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
-                                     mode='lines', name='Ideal Burndown',
-                                     line=dict(dash='dash', color='green')))
-        fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Actual"],
-                                     mode='lines+markers', name='Actual Burndown',
-                                     line=dict(color='red')))
-        fig_bdc.update_layout(title=f"{dept_name} – Burndown Chart (BDC)",
-                              xaxis_title="Date", yaxis_title="Work Remaining (%)",
-                              xaxis=dict(tickformat="%d.%m.%Y"))
-        st.plotly_chart(fig_bdc, use_container_width=True)
+        # Anzeigen der aggregierten Diagramme
+        st.subheader("Aggregiertes CFD Diagramm")
+        if aggregated_data["cfd"]:
+            df_cfd = pd.DataFrame({"Index": range(len(aggregated_data["cfd"])), "CFD": aggregated_data["cfd"]})
+            st.line_chart(df_cfd.set_index("Index"))
+        else:
+            st.info("Keine aggregierten CFD-Daten vorhanden.")
         
-        # BUC
-        df_buc = st.session_state[f"{dept_key}_BUC"].copy()
-        df_buc["Date"] = convert_date(df_buc["Date"])
-        df_buc = df_buc.sort_values("Date")
-        fig_buc = go.Figure()
-        fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
-                                     mode='lines', name='Total Scope',
-                                     line=dict(color=color_scheme)))
-        fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Completed"],
-                                     mode='lines+markers', name='Completed',
-                                     line=dict(color='orange')))
-        fig_buc.update_layout(title=f"{dept_name} – Burnup Chart (BUC)",
-                              xaxis_title="Date", yaxis_title="Work Units",
-                              xaxis=dict(tickformat="%d.%m.%Y"))
-        st.plotly_chart(fig_buc, use_container_width=True)
-    
-    render_charts_for_dept(dept_key, selected_dept, {"Governance": "blue", "Risk": "red", "Audit & Assessment": "green"}[selected_dept])
+        st.subheader("Aggregiertes BDC Diagramm")
+        if aggregated_data["bdc"]:
+            df_bdc = pd.DataFrame({"Index": range(len(aggregated_data["bdc"])), "BDC": aggregated_data["bdc"]})
+            st.line_chart(df_bdc.set_index("Index"))
+        else:
+            st.info("Keine aggregierten BDC-Daten vorhanden.")
+            
+        st.subheader("Aggregiertes BUC Diagramm")
+        if aggregated_data["buc"]:
+            df_buc = pd.DataFrame({"Index": range(len(aggregated_data["buc"])), "BUC": aggregated_data["buc"]})
+            st.line_chart(df_buc.set_index("Index"))
+        else:
+            st.info("Keine aggregierten BUC-Daten vorhanden.")
+        
+        # EAC Diagramm (nur im Overall-Tab)
+        st.subheader("EAC Diagramm")
+        eac_data = parse_input_data(eac_input)
+        if eac_data:
+            df_eac = pd.DataFrame({"Index": range(len(eac_data)), "EAC": eac_data})
+            st.line_chart(df_eac.set_index("Index"))
+        else:
+            st.info("Keine gültigen EAC-Daten vorhanden.")
+        
+        with st.expander("Weitere Diagramme"):
+            st.write("• Gantt Chart (Platzhalter)")
+            st.write("• Heatmap (Platzhalter)")
+            st.write("• Dashboard (Platzhalter)")
+
+# Erstellen der vier Tabs
+tab_governance, tab_risk, tab_audit, tab_overall = st.tabs([
+    "Governance", 
+    "Risk", 
+    "Audit & Assessment", 
+    "GRA (Overall)"
+])
+
+with tab_governance:
+    render_department_tab("Governance", "governance")
+
+with tab_risk:
+    render_department_tab("Risk", "risk")
+
+with tab_audit:
+    render_department_tab("Audit & Assessment", "audit")
+
+with tab_overall:
+    render_overall_tab()
