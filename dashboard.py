@@ -12,10 +12,10 @@ data_file = "project_data.xlsx"
 
 # Try to load data from Excel; if unavailable, use simulated data
 try:
-    df_cfd_excel = pd.read_excel(data_file, sheet_name="CFD")
-    df_bdc_excel = pd.read_excel(data_file, sheet_name="BDC")
-    df_buc_excel = pd.read_excel(data_file, sheet_name="BUC")
-    df_eac_excel = pd.read_excel(data_file, sheet_name="EAC")
+    df_cfd_excel = pd.read_excel(data_file, sheet_name="CFD", engine='openpyxl')
+    df_bdc_excel = pd.read_excel(data_file, sheet_name="BDC", engine='openpyxl')
+    df_buc_excel = pd.read_excel(data_file, sheet_name="BUC", engine='openpyxl')
+    df_eac_excel = pd.read_excel(data_file, sheet_name="EAC", engine='openpyxl')
 except Exception as e:
     st.error(f"Error loading Excel data: {e}")
     df_cfd_excel = df_bdc_excel = df_buc_excel = df_eac_excel = None
