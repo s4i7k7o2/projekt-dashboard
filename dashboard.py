@@ -22,7 +22,6 @@ def get_data_editor():
 data_editor = get_data_editor()
 
 def convert_date(date_series):
-    # Konvertiert Strings im Format DD.MM.YYYY in datetime
     return pd.to_datetime(date_series, format='%d.%m.%Y', dayfirst=True)
 
 # -------------------------------
@@ -76,7 +75,7 @@ if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
 # -------------------------------
-# Basiswerte für Kennzahlen
+# Basiswerte für Kennzahlen (SPM, CCPM, Safety, QAM)
 # -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
@@ -162,7 +161,7 @@ st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    # CFD – Erstelle das Diagramm mithilfe von go.Figure und stackgroup, inkl. Hover-Information
+    # CFD – Gestufte Darstellung (Stacked Area) mit step-artigen Übergängen
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -177,7 +176,8 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
             name=stage,
             stackgroup="one",
             line=dict(color=trace_color),
-            hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
+            hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>',
+            line_shape='hv'
         ))
     fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
                           xaxis_title="Date", yaxis_title="Count",
@@ -231,7 +231,7 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
 # Render-Diagramme je nach Auswahl
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus allen Unterabteilungen
+    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -249,7 +249,8 @@ if selected_dept == "GRA-Overall":
             name=stage,
             stackgroup="one",
             line=dict(color=trace_color),
-            hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
+            hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>',
+            line_shape='hv'
         ))
     fig_overall_cfd.update_layout(title="Overall GRA – Cumulative Flow Diagram (CFD)",
                                   xaxis_title="Date", yaxis_title="Count",
@@ -352,7 +353,8 @@ else:
                 name=stage,
                 stackgroup="one",
                 line=dict(color=trace_color),
-                hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
+                hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>',
+                line_shape='hv'
             ))
         fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
                               xaxis_title="Date", yaxis_title="Count",
