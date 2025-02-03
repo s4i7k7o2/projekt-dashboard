@@ -77,7 +77,9 @@ for dept in ["Gov", "Risk", "Audit"]:
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# Für Kennzahlen (SPM, CCPM, Safety, QAM)
+# -------------------------------
+# Kennzahlen (als Basiswerte)
+# -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -103,9 +105,9 @@ selected_dept = st.sidebar.selectbox(
     options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
 )
 
-# Im Sidebar-Bereich: Für Unterabteilungen (Governance, Risk, Audit & Assessment)
-# wird ein Data Editor für CFD, BDC und BUC angezeigt.
-# Für "GRA-Overall" zeigen wir stattdessen einen Data Editor für die EAC-Daten.
+# Im Sidebar-Bereich:
+# - Für "GRA-Overall" wird ein Data Editor für EAC-Daten angezeigt.
+# - Für die anderen Tabs erscheint jeweils ein Data Editor für CFD, BDC und BUC.
 if selected_dept == "GRA-Overall":
     st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
     if data_editor is not None:
@@ -119,9 +121,7 @@ if selected_dept == "GRA-Overall":
             edited = st.session_state["EAC"]
     st.session_state["EAC"] = edited
 else:
-    # Bestimme den Schlüssel (dept_key) anhand der Auswahl
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
-    
     st.sidebar.markdown(f"### Data Editor für {selected_dept}")
     with st.sidebar.expander(f"{selected_dept} – CFD Daten"):
         if data_editor is not None:
@@ -207,18 +207,16 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Falls "GRA-Overall" ausgewählt ist, aggregiere die Daten
+# Render-Diagramme abhängig von der Auswahl in der Sidebar
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten
+    # Aggregiere CFD-Daten aus allen drei Unterabteilungen (mithilfe groupby)
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
         df["Date"] = convert_date(df["Date"])
         dfs_cfd.append(df)
-    df_overall_cfd = dfs_cfd[0].copy()
-    for col in ["Backlog", "In Progress", "Done"]:
-        df_overall_cfd[col] = sum(df[col] for df in dfs_cfd)
+    df_overall_cfd = pd.concat(dfs_cfd).groupby("Date", as_index=False).sum()
     df_overall_cfd_melt = df_overall_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
                                               var_name="Stage", value_name="Count")
     fig_overall_cfd = px.area(df_overall_cfd_melt, x="Date", y="Count", color="Stage",
@@ -233,9 +231,7 @@ if selected_dept == "GRA-Overall":
         df = st.session_state[f"{dept}_BDC"].copy()
         df["Date"] = convert_date(df["Date"])
         dfs_bdc.append(df)
-    df_overall_bdc = dfs_bdc[0].copy()
-    for col in ["Ideal", "Actual"]:
-        df_overall_bdc[col] = sum(df[col] for df in dfs_bdc)
+    df_overall_bdc = pd.concat(dfs_bdc).groupby("Date", as_index=False).sum()
     fig_overall_bdc = go.Figure()
     fig_overall_bdc.add_trace(go.Scatter(x=df_overall_bdc["Date"], y=df_overall_bdc["Ideal"],
                                          mode='lines', name='Ideal Burndown',
@@ -254,9 +250,7 @@ if selected_dept == "GRA-Overall":
         df = st.session_state[f"{dept}_BUC"].copy()
         df["Date"] = convert_date(df["Date"])
         dfs_buc.append(df)
-    df_overall_buc = dfs_buc[0].copy()
-    for col in ["Total Scope", "Completed"]:
-        df_overall_buc[col] = sum(df[col] for df in dfs_buc)
+    df_overall_buc = pd.concat(dfs_buc).groupby("Date", as_index=False).sum()
     fig_overall_buc = go.Figure()
     fig_overall_buc.add_trace(go.Scatter(x=df_overall_buc["Date"], y=df_overall_buc["Total Scope"],
                                          mode='lines', name='Total Scope',
@@ -269,7 +263,7 @@ if selected_dept == "GRA-Overall":
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_buc, use_container_width=True)
     
-    # EAC Diagramm (nur im Overall-Tab)
+    # EAC-Diagramm (nur im Overall-Tab)
     df_overall_eac = st.session_state["EAC"].copy()
     df_overall_eac["Date"] = convert_date(df_overall_eac["Date"])
     fig_overall_eac = go.Figure()
@@ -290,9 +284,8 @@ if selected_dept == "GRA-Overall":
     Änderungen im Data Editor (Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
     """)
 else:
-    # Für eine Unterabteilung
+    # Für die Unterabteilungen (Governance, Risk, Audit & Assessment)
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
-    # Verwende die Funktion render_charts_for_dept
     def render_charts_for_dept(dept_key, dept_name, color_scheme):
         st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
         # CFD
