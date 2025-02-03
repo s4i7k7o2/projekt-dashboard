@@ -78,7 +78,7 @@ if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
 # -------------------------------
-# Kennzahlen (als Basiswerte)
+# Basiswerte für Kennzahlen (SPM, CCPM, Safety, QAM)
 # -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
@@ -105,9 +105,7 @@ selected_dept = st.sidebar.selectbox(
     options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
 )
 
-# Im Sidebar-Bereich:
-# - Für "GRA-Overall" wird ein Data Editor für EAC-Daten angezeigt.
-# - Für die anderen Tabs erscheint jeweils ein Data Editor für CFD, BDC und BUC.
+# Sidebar Data Editor je nach ausgewähltem Tab
 if selected_dept == "GRA-Overall":
     st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
     if data_editor is not None:
@@ -207,10 +205,10 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render-Diagramme abhängig von der Auswahl in der Sidebar
+# Wenn "GRA-Overall" ausgewählt ist, aggregiere die Daten aller Unterabteilungen
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus allen drei Unterabteilungen (mithilfe groupby)
+    # Aggregiere CFD-Daten
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -284,7 +282,7 @@ if selected_dept == "GRA-Overall":
     Änderungen im Data Editor (Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
     """)
 else:
-    # Für die Unterabteilungen (Governance, Risk, Audit & Assessment)
+    # Für Unterabteilungen: Governance, Risk, Audit & Assessment
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     def render_charts_for_dept(dept_key, dept_name, color_scheme):
         st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
@@ -328,5 +326,5 @@ else:
                               xaxis_title="Date", yaxis_title="Work Units",
                               xaxis=dict(tickformat="%d.%m.%Y"))
         st.plotly_chart(fig_buc, use_container_width=True)
-        
+    
     render_charts_for_dept(dept_key, selected_dept, {"Governance": "blue", "Risk": "red", "Audit & Assessment": "green"}[selected_dept])
