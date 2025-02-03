@@ -76,7 +76,7 @@ if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
 # -------------------------------
-# Basiswerte für Kennzahlen (SPM, CCPM, Safety, QAM)
+# Basiswerte für Kennzahlen
 # -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
@@ -103,7 +103,6 @@ selected_dept = st.sidebar.selectbox(
     options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
 )
 
-# Für "GRA-Overall" zeigen wir in der Sidebar einen Data Editor für die EAC-Daten.
 if selected_dept == "GRA-Overall":
     st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
     with st.sidebar.expander("EAC Daten bearbeiten"):
@@ -118,7 +117,6 @@ if selected_dept == "GRA-Overall":
                 edited_eac = st.session_state["EAC"]
         st.session_state["EAC"] = edited_eac
 else:
-    # Für die Unterabteilungen: Governance, Risk, Audit & Assessment
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     st.sidebar.markdown(f"### Data Editor für {selected_dept}")
     with st.sidebar.expander(f"{selected_dept} – CFD Daten"):
@@ -164,7 +162,7 @@ st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    # CFD – Erstelle das Diagramm mithilfe von go.Figure und stackgroup für korrekte Darstellung
+    # CFD – Erstelle das Diagramm mithilfe von go.Figure und stackgroup, inkl. Hover-Information
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -178,7 +176,8 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
             mode="lines",
             name=stage,
             stackgroup="one",
-            line=dict(color=trace_color)
+            line=dict(color=trace_color),
+            hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
         ))
     fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
                           xaxis_title="Date", yaxis_title="Count",
@@ -193,12 +192,14 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
     fig_bdc.add_trace(go.Scatter(
         x=df_bdc["Date"], y=df_bdc["Ideal"],
         mode='lines', name='Ideal Burndown',
-        line=dict(dash='dash', color='green')
+        line=dict(dash='dash', color='green'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Ideal: %{y}<extra></extra>'
     ))
     fig_bdc.add_trace(go.Scatter(
         x=df_bdc["Date"], y=df_bdc["Actual"],
         mode='lines+markers', name='Actual Burndown',
-        line=dict(color='red')
+        line=dict(color='red'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Actual: %{y}<extra></extra>'
     ))
     fig_bdc.update_layout(title=f"{dept_name} – Burndown Chart (BDC)",
                           xaxis_title="Date", yaxis_title="Work Remaining (%)",
@@ -213,22 +214,24 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
     fig_buc.add_trace(go.Scatter(
         x=df_buc["Date"], y=df_buc["Total Scope"],
         mode='lines', name='Total Scope',
-        line=dict(color=color_scheme)
+        line=dict(color=color_scheme),
+        hovertemplate='%{x|%d.%m.%Y}<br>Total Scope: %{y}<extra></extra>'
     ))
     fig_buc.add_trace(go.Scatter(
         x=df_buc["Date"], y=df_buc["Completed"],
         mode='lines+markers', name='Completed',
-        line=dict(color='orange')
+        line=dict(color='orange'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Completed: %{y}<extra></extra>'
     ))
     fig_buc.update_layout(title=f"{dept_name} – Burnup Chart (BUC)",
                           xaxis_title="Date", yaxis_title="Work Units",
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render der Diagramme je nach Auswahl
+# Render-Diagramme je nach Auswahl
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
+    # Aggregiere CFD-Daten aus allen Unterabteilungen
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -245,7 +248,8 @@ if selected_dept == "GRA-Overall":
             mode="lines",
             name=stage,
             stackgroup="one",
-            line=dict(color=trace_color)
+            line=dict(color=trace_color),
+            hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
         ))
     fig_overall_cfd.update_layout(title="Overall GRA – Cumulative Flow Diagram (CFD)",
                                   xaxis_title="Date", yaxis_title="Count",
@@ -263,12 +267,14 @@ if selected_dept == "GRA-Overall":
     fig_overall_bdc.add_trace(go.Scatter(
         x=df_overall_bdc["Date"], y=df_overall_bdc["Ideal"],
         mode='lines', name='Ideal Burndown',
-        line=dict(dash='dash', color='green')
+        line=dict(dash='dash', color='green'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Ideal: %{y}<extra></extra>'
     ))
     fig_overall_bdc.add_trace(go.Scatter(
         x=df_overall_bdc["Date"], y=df_overall_bdc["Actual"],
         mode='lines+markers', name='Actual Burndown',
-        line=dict(color='red')
+        line=dict(color='red'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Actual: %{y}<extra></extra>'
     ))
     fig_overall_bdc.update_layout(title="Overall GRA – Burndown Chart (BDC)",
                                   xaxis_title="Date", yaxis_title="Work Remaining (%)",
@@ -286,12 +292,14 @@ if selected_dept == "GRA-Overall":
     fig_overall_buc.add_trace(go.Scatter(
         x=df_overall_buc["Date"], y=df_overall_buc["Total Scope"],
         mode='lines', name='Total Scope',
-        line=dict(color='purple')
+        line=dict(color='purple'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Total Scope: %{y}<extra></extra>'
     ))
     fig_overall_buc.add_trace(go.Scatter(
         x=df_overall_buc["Date"], y=df_overall_buc["Completed"],
         mode='lines+markers', name='Completed',
-        line=dict(color='orange')
+        line=dict(color='orange'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Completed: %{y}<extra></extra>'
     ))
     fig_overall_buc.update_layout(title="Overall GRA – Burnup Chart (BUC)",
                                   xaxis_title="Date", yaxis_title="Work Units",
@@ -306,12 +314,14 @@ if selected_dept == "GRA-Overall":
     fig_overall_eac.add_trace(go.Scatter(
         x=df_overall_eac["Date"], y=df_overall_eac["Actual Cost"],
         mode='lines+markers', name='Actual Cost',
-        line=dict(color='brown')
+        line=dict(color='brown'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Actual Cost: %{y}<extra></extra>'
     ))
     fig_overall_eac.add_trace(go.Scatter(
         x=df_overall_eac["Date"], y=df_overall_eac["Forecast Cost"],
         mode='lines+markers', name='Forecast Cost',
-        line=dict(dash='dash', color='gray')
+        line=dict(dash='dash', color='gray'),
+        hovertemplate='%{x|%d.%m.%Y}<br>Forecast Cost: %{y}<extra></extra>'
     ))
     fig_overall_eac.update_layout(title="Overall GRA – Estimate at Completion (EAC)",
                                   xaxis_title="Date", yaxis_title="Cost (€)",
@@ -331,7 +341,6 @@ else:
         df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
         df_cfd["Date"] = convert_date(df_cfd["Date"])
         df_cfd = df_cfd.sort_values("Date")
-        # Erstelle den CFD mit go.Figure und stackgroup
         fig_cfd = go.Figure()
         for stage, col, trace_color in zip(["Backlog", "In Progress", "Done"],
                                            ["Backlog", "In Progress", "Done"],
@@ -342,7 +351,8 @@ else:
                 mode="lines",
                 name=stage,
                 stackgroup="one",
-                line=dict(color=trace_color)
+                line=dict(color=trace_color),
+                hovertemplate='%{x|%d.%m.%Y}<br>' + stage + ': %{y}<extra></extra>'
             ))
         fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
                               xaxis_title="Date", yaxis_title="Count",
@@ -357,12 +367,14 @@ else:
         fig_bdc.add_trace(go.Scatter(
             x=df_bdc["Date"], y=df_bdc["Ideal"],
             mode='lines', name='Ideal Burndown',
-            line=dict(dash='dash', color='green')
+            line=dict(dash='dash', color='green'),
+            hovertemplate='%{x|%d.%m.%Y}<br>Ideal: %{y}<extra></extra>'
         ))
         fig_bdc.add_trace(go.Scatter(
             x=df_bdc["Date"], y=df_bdc["Actual"],
             mode='lines+markers', name='Actual Burndown',
-            line=dict(color='red')
+            line=dict(color='red'),
+            hovertemplate='%{x|%d.%m.%Y}<br>Actual: %{y}<extra></extra>'
         ))
         fig_bdc.update_layout(title=f"{dept_name} – Burndown Chart (BDC)",
                               xaxis_title="Date", yaxis_title="Work Remaining (%)",
@@ -377,12 +389,14 @@ else:
         fig_buc.add_trace(go.Scatter(
             x=df_buc["Date"], y=df_buc["Total Scope"],
             mode='lines', name='Total Scope',
-            line=dict(color=color_scheme)
+            line=dict(color=color_scheme),
+            hovertemplate='%{x|%d.%m.%Y}<br>Total Scope: %{y}<extra></extra>'
         ))
         fig_buc.add_trace(go.Scatter(
             x=df_buc["Date"], y=df_buc["Completed"],
             mode='lines+markers', name='Completed',
-            line=dict(color='orange')
+            line=dict(color='orange'),
+            hovertemplate='%{x|%d.%m.%Y}<br>Completed: %{y}<extra></extra>'
         ))
         fig_buc.update_layout(title=f"{dept_name} – Burnup Chart (BUC)",
                               xaxis_title="Date", yaxis_title="Work Units",
