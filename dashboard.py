@@ -77,7 +77,7 @@ for dept in ["Gov", "Risk", "Audit"]:
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# Für die Kennzahlen (SPM, CCPM, Safety, QAM)
+# Für Kennzahlen (SPM, CCPM, Safety, QAM)
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -96,19 +96,33 @@ if "qam_ref" not in st.session_state:
     st.session_state.qam_ref = 100
 
 # -------------------------------
-# Sidebar: Abteilungsauswahl und Data Editor (abhängig vom Tab)
+# Sidebar: Abteilungsauswahl und Data Editor
 # -------------------------------
 selected_dept = st.sidebar.selectbox(
     "Wähle eine Abteilung:",
     options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
 )
 
-# Wenn eine Unterabteilung (nicht Overall) ausgewählt ist, zeige Data Editor in der Sidebar
-if selected_dept != "GRA-Overall":
-    st.sidebar.markdown(f"### Data Editor für {selected_dept}")
+# Im Sidebar-Bereich: Für Unterabteilungen (Governance, Risk, Audit & Assessment)
+# wird ein Data Editor für CFD, BDC und BUC angezeigt.
+# Für "GRA-Overall" zeigen wir stattdessen einen Data Editor für die EAC-Daten.
+if selected_dept == "GRA-Overall":
+    st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
+    if data_editor is not None:
+        edited = data_editor(st.session_state["EAC"], num_rows="dynamic", key="EAC_editor")
+    else:
+        csv_text = st.text_area("EAC Daten (CSV)", value=st.session_state["EAC"].to_csv(index=False), key="EAC_csv")
+        try:
+            edited = pd.read_csv(io.StringIO(csv_text), sep=",")
+        except Exception as e:
+            st.error(f"Fehler beim Parsen: {e}")
+            edited = st.session_state["EAC"]
+    st.session_state["EAC"] = edited
+else:
     # Bestimme den Schlüssel (dept_key) anhand der Auswahl
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     
+    st.sidebar.markdown(f"### Data Editor für {selected_dept}")
     with st.sidebar.expander(f"{selected_dept} – CFD Daten"):
         if data_editor is not None:
             edited = data_editor(st.session_state[f"{dept_key}_CFD"], num_rows="dynamic", key=f"{dept_key}_CFD_editor")
@@ -193,10 +207,10 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render der Diagramme entsprechend der Auswahl
+# Falls "GRA-Overall" ausgewählt ist, aggregiere die Daten
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
+    # Aggregiere CFD-Daten
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
@@ -269,8 +283,57 @@ if selected_dept == "GRA-Overall":
                                   xaxis_title="Date", yaxis_title="Cost (€)",
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_eac, use_container_width=True)
+    
+    st.markdown("### Conclusion")
+    st.markdown("""
+    Die aggregierten Daten der Unterabteilungen werden hier zusammengeführt.
+    Änderungen im Data Editor (Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
+    """)
 else:
-    # Für eine Unterabteilung (Governance, Risk, Audit & Assessment)
+    # Für eine Unterabteilung
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
+    # Verwende die Funktion render_charts_for_dept
+    def render_charts_for_dept(dept_key, dept_name, color_scheme):
+        st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
+        # CFD
+        df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
+        df_cfd["Date"] = convert_date(df_cfd["Date"])
+        df_cfd_melt = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
+                                   var_name="Stage", value_name="Count")
+        fig_cfd = px.area(df_cfd_melt, x="Date", y="Count", color="Stage",
+                          category_orders={"Stage": ["Backlog", "In Progress", "Done"]},
+                          title=f"{dept_name} – Cumulative Flow Diagram (CFD)")
+        fig_cfd.update_xaxes(tickformat="%d.%m.%Y")
+        st.plotly_chart(fig_cfd, use_container_width=True)
+        
+        # BDC
+        df_bdc = st.session_state[f"{dept_key}_BDC"].copy()
+        df_bdc["Date"] = convert_date(df_bdc["Date"])
+        fig_bdc = go.Figure()
+        fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
+                                     mode='lines', name='Ideal Burndown',
+                                     line=dict(dash='dash', color='green')))
+        fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Actual"],
+                                     mode='lines+markers', name='Actual Burndown',
+                                     line=dict(color='red')))
+        fig_bdc.update_layout(title=f"{dept_name} – Burndown Chart (BDC)",
+                              xaxis_title="Date", yaxis_title="Work Remaining (%)",
+                              xaxis=dict(tickformat="%d.%m.%Y"))
+        st.plotly_chart(fig_bdc, use_container_width=True)
+        
+        # BUC
+        df_buc = st.session_state[f"{dept_key}_BUC"].copy()
+        df_buc["Date"] = convert_date(df_buc["Date"])
+        fig_buc = go.Figure()
+        fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
+                                     mode='lines', name='Total Scope',
+                                     line=dict(color=color_scheme)))
+        fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Completed"],
+                                     mode='lines+markers', name='Completed',
+                                     line=dict(color='orange')))
+        fig_buc.update_layout(title=f"{dept_name} – Burnup Chart (BUC)",
+                              xaxis_title="Date", yaxis_title="Work Units",
+                              xaxis=dict(tickformat="%d.%m.%Y"))
+        st.plotly_chart(fig_buc, use_container_width=True)
+        
     render_charts_for_dept(dept_key, selected_dept, {"Governance": "blue", "Risk": "red", "Audit & Assessment": "green"}[selected_dept])
-
