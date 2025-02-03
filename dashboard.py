@@ -70,7 +70,7 @@ with tabs[0]:
     Indicator of field progress versus planned progress. Green means on or ahead of schedule; yellow indicates potential delays; red signals significant delays requiring corrective action.
     
     **Cost Contingency Performance Metric (CCPM)**  
-    Compares contingency cost drawdown to project progress. Green means remaining contingency is likely adequate; yellow suggests closer monitoring; red indicates possible inadequacy.
+    Compares contingency cost drawdown to project progress. Herebei werden die Forecast-Kosten aus der EAC-Tabelle verwendet und der aktuelle (letzte) Actual Cost zugrunde gelegt.
     
     **Safety Performance Metric (SPM)**  
     Compares project safety performance to the industry national average, typically based on OSHA’s Incident Rate (IR).
@@ -107,7 +107,7 @@ with tabs[0]:
         }
     ))
 
-    # CCPM Gauge
+    # CCPM Gauge (berechnet aus EAC-Daten)
     fig_cost = go.Figure(go.Indicator(
         mode="gauge+number+delta",
         value=st.session_state.ccpm_value,
@@ -298,7 +298,7 @@ with tabs[0]:
     
     st.header("Conclusion")
     st.markdown("""
-    In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. The additional charts and gauges update based on the data entered in the Data Editor tab.
+    In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. Die zusätzlichen Charts und Gauges aktualisieren sich basierend auf den in Tab 2 eingegebenen Daten.
     """)
 
 # ===========================
@@ -410,28 +410,7 @@ with tabs[1]:
         st.session_state.spm_ref = 100
         st.write(f"Berechnetes SPM: {st.session_state.spm_value:.2f} %")
     
-    # Interaktiver CCPM Editor (Actual Cost und Forecast Cost)
-    st.subheader("Interaktiver CCPM Editor")
-    sample_ccpm = pd.DataFrame({
-        "Actual Cost": [30000],
-        "Forecast Cost": [40000]
-    })
-    if data_editor is not None:
-        edited_ccpm = data_editor(sample_ccpm, num_rows="static", key="ccpm_editor")
-    else:
-        st.info("Data editor widget nicht verfügbar – bitte aktualisiere Streamlit.")
-        csv_ccpm = sample_ccpm.to_csv(index=False)
-        edited_csv_ccpm = st.text_area("Editiere CCPM-Daten (CSV)", value=csv_ccpm, key="ccpm_txt")
-        try:
-            edited_ccpm = pd.read_csv(io.StringIO(edited_csv_ccpm))
-        except Exception as e:
-            st.error(f"Fehler beim Parsen: {e}")
-            edited_ccpm = sample_ccpm
-    if not edited_ccpm.empty and edited_ccpm["Forecast Cost"].iloc[0] > 0:
-        computed_ccpm = (edited_ccpm["Actual Cost"].iloc[0] / edited_ccpm["Forecast Cost"].iloc[0]) * 100
-        st.session_state.ccpm_value = round(computed_ccpm, 2)
-        st.session_state.ccpm_ref = 100
-        st.write(f"Berechnetes CCPM: {st.session_state.ccpm_value:.2f} %")
+    # Interaktiver CCPM Editor entfällt – CCPM wird aus den EAC-Daten berechnet!
     
     st.header("Additional Data Editors for Safety and Quality")
     # Safety Data Editor
@@ -471,6 +450,16 @@ with tabs[1]:
             edited_quality = sample_quality
 
     st.header("Berechnung weiterer Kennzahlen")
+    # SPM bereits oben berechnet
+    # CCPM aus den EAC-Daten: Verwende den letzten Datensatz
+    if not edited_eac.empty:
+        last_row = edited_eac.iloc[-1]
+        computed_ccpm = (last_row['Actual Cost'] / last_row['Forecast Cost']) * 100
+        st.session_state.ccpm_value = round(computed_ccpm, 2)
+        st.session_state.ccpm_ref = 100
+        st.write(f"Berechnetes CCPM: {st.session_state.ccpm_value:.2f} %")
+    
+    # Safety SPM aus Safety Data
     if not edited_safety.empty:
         safety_row = edited_safety.iloc[0]
         computed_safety = max(0, (1 - (safety_row['Total Incidents'] / safety_row['Expected Incidents'])) * 100)
@@ -478,6 +467,7 @@ with tabs[1]:
         st.session_state.safety_ref = 100
         st.write(f"Berechnetes Safety SPM: {st.session_state.safety_value:.2f} %")
     
+    # QAM aus Quality Data
     if not edited_quality.empty:
         quality_row = edited_quality.iloc[0]
         computed_qam = max(0, (1 - (quality_row['NonConformance'] / quality_row['Allowed'])) * 100)
@@ -485,4 +475,4 @@ with tabs[1]:
         st.session_state.qam_ref = 100
         st.write(f"Berechnetes QAM: {st.session_state.qam_value:.2f} %")
     
-    st.markdown("Die berechneten Kennzahlen werden in den Dashboard-Gauges angezeigt. Beim Wechseln des Tabs oder erneuten Ausführen der App werden alle Werte aktualisiert.")
+    st.markdown("Die berechneten Kennzahlen werden in den Dashboard-Gauges angezeigt. Beim Wechseln des Tabs oder einem erneuten Ausführen der App werden alle Werte aktualisiert.")
