@@ -3,6 +3,27 @@ import plotly.graph_objects as go
 import plotly.express as px
 import pandas as pd
 import numpy as np
+import streamlit as st
+import pandas as pd
+import plotly.express as px
+
+# Read the Excel file from the repository (assumed to be in the same directory)
+data_file = "project_data.xlsx"
+
+# Load data from different sheets
+df_cfd = pd.read_excel(data_file, sheet_name="CFD")
+df_bdc = pd.read_excel(data_file, sheet_name="BDC")
+df_buc = pd.read_excel(data_file, sheet_name="BUC")
+df_eac = pd.read_excel(data_file, sheet_name="EAC")
+
+# Now, you can use these DataFrames to build your plots (e.g., CFD chart)
+st.header("CFD (Cumulative Flow Diagram)")
+fig_cfd = px.area(df_cfd, x="Date", y=["Backlog", "In Progress", "Done"],
+                  title="Cumulative Flow Diagram")
+st.plotly_chart(fig_cfd, use_container_width=True)
+
+# Similarly, build other charts using df_bdc, df_buc, and df_eac
+
 
 # Set page configuration
 st.set_page_config(layout="wide")
