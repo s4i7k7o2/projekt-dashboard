@@ -12,7 +12,6 @@ st.set_page_config(layout="wide", page_title="GRA Dashboard")
 # Hilfsfunktionen
 # -------------------------------
 def get_data_editor():
-    # Nutzt st.experimental_data_editor oder st.data_editor, falls verfügbar
     if hasattr(st, "experimental_data_editor"):
         return st.experimental_data_editor
     elif hasattr(st, "data_editor"):
@@ -78,7 +77,7 @@ for dept in ["Gov", "Risk", "Audit"]:
 if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
-# Für die Kennzahlen (SPM, CCPM, Safety, QAM) – hier als Basiswerte
+# Für die Kennzahlen (SPM, CCPM, Safety, QAM)
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
 if "spm_ref" not in st.session_state:
@@ -97,49 +96,129 @@ if "qam_ref" not in st.session_state:
     st.session_state.qam_ref = 100
 
 # -------------------------------
-# Data Editor Tab – Bearbeitbare Daten für alle Unterabteilungen
+# Dashboard Tab (Hauptinhalt)
 # -------------------------------
-with st.sidebar.expander("Data Editor – Unterabteilungen"):
-    st.header("Unterabteilungen bearbeiten")
+tabs = st.tabs(["Dashboard", "Data Editor"])
+
+with tabs[0]:
+    st.title("Project Performance Dashboard")
+    st.header("Introduction")
+    st.markdown("""
+    Project-status reporting is intended to enable decision makers to make informed decisions that will increase the chances of achieving a favorable outcome. Furthermore, it is a vehicle to communicate project performance information to project stakeholders.
+    
+    ... [Weitere Einleitungstexte] ...
+    """)
+    
+    st.header("Definitions")
+    st.markdown("""
+    **Schedule Performance Metric (SPM):** Fortschrittsvergleich, etc.  
+    **Cost Contingency Performance Metric (CCPM):** Vergleicht aktuelle Kosten mit Forecast.  
+    **Safety Performance Metric (SPM):** Basierend auf Incident Rate.  
+    **Quality Assurance Metric (QAM):** Qualitätskontrolle.
+    """)
+    
+    st.header("Performance Metrics Gauges")
+    # Hier werden die Gauges angezeigt (Werte aus st.session_state)
+    fig_spm = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=st.session_state.spm_value,
+        delta={'reference': st.session_state.spm_ref, 'increasing': {'color': "red"}},
+        title={'text': "SPM"},
+        gauge={'axis': {'range': [0, 100]}}
+    ))
+    fig_ccpm = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=st.session_state.ccpm_value,
+        delta={'reference': st.session_state.ccpm_ref, 'increasing': {'color': "red"}},
+        title={'text': "CCPM"},
+        gauge={'axis': {'range': [0, 100]}}
+    ))
+    fig_safety = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=st.session_state.safety_value,
+        delta={'reference': st.session_state.safety_ref, 'increasing': {'color': "red"}},
+        title={'text': "Safety SPM"},
+        gauge={'axis': {'range': [0, 100]}}
+    ))
+    fig_qam = go.Figure(go.Indicator(
+        mode="gauge+number+delta",
+        value=st.session_state.qam_value,
+        delta={'reference': st.session_state.qam_ref, 'increasing': {'color': "red"}},
+        title={'text': "QAM"},
+        gauge={'axis': {'range': [0, 100]}}
+    ))
+    col1, col2 = st.columns(2)
+    with col1:
+        st.plotly_chart(fig_spm, use_container_width=True)
+        st.plotly_chart(fig_ccpm, use_container_width=True)
+    with col2:
+        st.plotly_chart(fig_safety, use_container_width=True)
+        st.plotly_chart(fig_qam, use_container_width=True)
+    
+    st.header("Additional Diagrams")
+    st.markdown("""
+    **CFD:** Kumulativer Flow, **BDC:** Burndown Chart, **BUC:** Burnup Chart, **EAC:** Estimate at Completion (nur im Overall-Tab)
+    """)
+    # Hier werden im Dashboard die Diagramme aus dem Data Editor angezeigt.
+    # Beispiel: CFD
+    df_cfd_overall = st.session_state["Gov_CFD"].copy()  # für Demo: verwende Governance-Daten
+    df_cfd_overall["Date"] = convert_date(df_cfd_overall["Date"])
+    df_cfd_melt = df_cfd_overall.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
+                                      var_name="Stage", value_name="Count")
+    fig_cfd_overall = px.area(df_cfd_melt, x="Date", y="Count", color="Stage",
+                              title="Overall CFD (Beispiel: Governance-Daten)")
+    fig_cfd_overall.update_xaxes(tickformat="%d.%m.%Y")
+    st.plotly_chart(fig_cfd_overall, use_container_width=True)
+    
+    st.markdown("Weitere Diagramme (BDC, BUC) werden in den Abteilungstabs angezeigt.")
+
+# -------------------------------
+# Data Editor Tab – Bearbeitbare Daten (Sidebar nicht verschachtelt)
+# -------------------------------
+with tabs[1]:
+    st.title("Data Editor – GRA Tracking")
+    st.markdown("Hier kannst du die zugrunde liegenden Daten bearbeiten. Die Änderungen wirken sich beim nächsten Rerun (z. B. nach Tab-Wechsel) in den Diagrammen aus.")
+    
+    # Für jede Unterabteilung separat
     for dept, name in zip(["Gov", "Risk", "Audit"], ["Governance", "Risk", "Audit & Assessment"]):
-        st.markdown(f"#### {name}")
-        with st.expander(f"{name} – CFD Daten"):
-            if data_editor is not None:
-                edited = data_editor(st.session_state[f"{dept}_CFD"], num_rows="dynamic", key=f"{dept}_CFD_editor")
-            else:
-                csv_text = st.text_area(f"CFD {name} (CSV)", value=st.session_state[f"{dept}_CFD"].to_csv(index=False), key=f"{dept}_CFD_csv")
-                try:
-                    edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-                except Exception as e:
-                    st.error(f"Fehler beim Parsen: {e}")
-                    edited = st.session_state[f"{dept}_CFD"]
-            st.session_state[f"{dept}_CFD"] = edited
+        st.subheader(f"{name} – CFD Daten")
+        if data_editor is not None:
+            edited = data_editor(st.session_state[f"{dept}_CFD"], num_rows="dynamic", key=f"{dept}_CFD_editor")
+        else:
+            csv_text = st.text_area(f"CFD {name} (CSV)", value=st.session_state[f"{dept}_CFD"].to_csv(index=False), key=f"{dept}_CFD_csv")
+            try:
+                edited = pd.read_csv(io.StringIO(csv_text), sep=",")
+            except Exception as e:
+                st.error(f"Fehler beim Parsen: {e}")
+                edited = st.session_state[f"{dept}_CFD"]
+        st.session_state[f"{dept}_CFD"] = edited
 
-        with st.expander(f"{name} – BDC Daten"):
-            if data_editor is not None:
-                edited = data_editor(st.session_state[f"{dept}_BDC"], num_rows="dynamic", key=f"{dept}_BDC_editor")
-            else:
-                csv_text = st.text_area(f"BDC {name} (CSV)", value=st.session_state[f"{dept}_BDC"].to_csv(index=False), key=f"{dept}_BDC_csv")
-                try:
-                    edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-                except Exception as e:
-                    st.error(f"Fehler beim Parsen: {e}")
-                    edited = st.session_state[f"{dept}_BDC"]
-            st.session_state[f"{dept}_BDC"] = edited
+        st.subheader(f"{name} – BDC Daten")
+        if data_editor is not None:
+            edited = data_editor(st.session_state[f"{dept}_BDC"], num_rows="dynamic", key=f"{dept}_BDC_editor")
+        else:
+            csv_text = st.text_area(f"BDC {name} (CSV)", value=st.session_state[f"{dept}_BDC"].to_csv(index=False), key=f"{dept}_BDC_csv")
+            try:
+                edited = pd.read_csv(io.StringIO(csv_text), sep=",")
+            except Exception as e:
+                st.error(f"Fehler beim Parsen: {e}")
+                edited = st.session_state[f"{dept}_BDC"]
+        st.session_state[f"{dept}_BDC"] = edited
 
-        with st.expander(f"{name} – BUC Daten"):
-            if data_editor is not None:
-                edited = data_editor(st.session_state[f"{dept}_BUC"], num_rows="dynamic", key=f"{dept}_BUC_editor")
-            else:
-                csv_text = st.text_area(f"BUC {name} (CSV)", value=st.session_state[f"{dept}_BUC"].to_csv(index=False), key=f"{dept}_BUC_csv")
-                try:
-                    edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-                except Exception as e:
-                    st.error(f"Fehler beim Parsen: {e}")
-                    edited = st.session_state[f"{dept}_BUC"]
-            st.session_state[f"{dept}_BUC"] = edited
+        st.subheader(f"{name} – BUC Daten")
+        if data_editor is not None:
+            edited = data_editor(st.session_state[f"{dept}_BUC"], num_rows="dynamic", key=f"{dept}_BUC_editor")
+        else:
+            csv_text = st.text_area(f"BUC {name} (CSV)", value=st.session_state[f"{dept}_BUC"].to_csv(index=False), key=f"{dept}_BUC_csv")
+            try:
+                edited = pd.read_csv(io.StringIO(csv_text), sep=",")
+            except Exception as e:
+                st.error(f"Fehler beim Parsen: {e}")
+                edited = st.session_state[f"{dept}_BUC"]
+        st.session_state[f"{dept}_BUC"] = edited
 
-    st.header("Gesamtbereich (EAC)")
+    # EAC Daten (Overall)
+    st.subheader("EAC Daten (Overall)")
     if data_editor is not None:
         edited = data_editor(st.session_state["EAC"], num_rows="dynamic", key="EAC_editor")
     else:
@@ -152,7 +231,6 @@ with st.sidebar.expander("Data Editor – Unterabteilungen"):
     st.session_state["EAC"] = edited
 
     st.header("Interaktive Kennzahlen-Editoren")
-    # Hier bearbeiten wir SPM (aus Planned/Actual) – gilt hier global (z. B. Overall)
     st.subheader("Interaktiver SPM Editor")
     sample_spm = pd.DataFrame({
         "Planned Progress": [100],
@@ -173,9 +251,6 @@ with st.sidebar.expander("Data Editor – Unterabteilungen"):
         st.session_state.spm_ref = 100
         st.write(f"Berechnetes SPM: {st.session_state.spm_value:.2f} %")
     
-    # Für CCPM wird EAC genutzt – Berechnung erfolgt weiter unten im Editor-Bereich
-
-    # Safety und Quality Daten
     st.header("Safety und Quality Daten")
     with st.expander("Safety Daten"):
         sample_safety = pd.DataFrame({"Total Incidents": [2], "Expected Incidents": [5]})
@@ -202,9 +277,8 @@ with st.sidebar.expander("Data Editor – Unterabteilungen"):
                 edited_quality = sample_quality
         st.session_state["Quality"] = edited_quality
 
-    # Berechnung von CCPM, Safety SPM und QAM
-    st.header("Berechnung Kennzahlen")
-    # CCPM aus EAC (letzter Datensatz)
+    st.header("Berechnung weiterer Kennzahlen")
+    # CCPM aus EAC-Daten
     if not st.session_state["EAC"].empty:
         last_row = st.session_state["EAC"].iloc[-1]
         computed_ccpm = (last_row["Actual Cost"] / last_row["Forecast Cost"]) * 100
@@ -224,15 +298,14 @@ with st.sidebar.expander("Data Editor – Unterabteilungen"):
     st.session_state.qam_ref = 100
     st.write(f"Berechnetes QAM: {st.session_state.qam_value:.2f} %")
     
-    st.markdown("Die bearbeiteten Daten und berechneten Kennzahlen werden in den Dashboard-Tabs angezeigt (nach Tab-Wechsel oder neuem Rerun).")
-
+    st.markdown("Die bearbeiteten Daten und berechneten Kennzahlen werden in den Abteilungstabs angezeigt (beim Wechseln des Tabs oder bei erneutem Ausführen der App).")
+    
 # -------------------------------
 # Abteilungstabs: Governance, Risk, Audit & Assessment, Overall GRA
 # -------------------------------
 dept_tabs = st.tabs(["Governance", "Risk", "Audit & Assessment", "Overall GRA"])
 
 def render_dept_tab(dept_key, dept_name, color_scheme):
-    # Für CFD, BDC, BUC – verwende die Daten aus st.session_state
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
     # CFD
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
@@ -274,33 +347,23 @@ def render_dept_tab(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Render für jede Unterabteilung
 with dept_tabs[0]:
     render_dept_tab("Gov", "Governance", "blue")
 with dept_tabs[1]:
     render_dept_tab("Risk", "Risk", "red")
 with dept_tabs[2]:
     render_dept_tab("Audit", "Audit & Assessment", "green")
-
-# Overall – Aggregation der Daten der drei Unterabteilungen
 with dept_tabs[3]:
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    st.markdown("""
-    Im Overall-Tab werden die Daten der drei Unterabteilungen aggregiert.
-    Für CFD und BUC werden die Werte zeilenweise summiert.
-    Für BDC werden die Ideal- und Actual-Werte ebenfalls aufsummiert (vorausgesetzt, dass alle Datensätze dieselben Zeiträume abdecken).
-    Das EAC-Diagramm wird nur in diesem Tab angezeigt.
-    """)
-    # Aggregiere CFD: Zeilenweise Summe (nach Datum)
-    # Wir gehen davon aus, dass alle CFD-Daten dieselben Datumswerte haben.
-    dfs = []
+    # Aggregiere CFD
+    dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
         df["Date"] = convert_date(df["Date"])
-        dfs.append(df)
-    df_overall_cfd = dfs[0].copy()
+        dfs_cfd.append(df)
+    df_overall_cfd = dfs_cfd[0].copy()
     for col in ["Backlog", "In Progress", "Done"]:
-        df_overall_cfd[col] = sum(df[col] for df in dfs)
+        df_overall_cfd[col] = sum(df[col] for df in dfs_cfd)
     df_overall_cfd_melt = df_overall_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
                                               var_name="Stage", value_name="Count")
     fig_overall_cfd = px.area(df_overall_cfd_melt, x="Date", y="Count", color="Stage",
@@ -308,15 +371,15 @@ with dept_tabs[3]:
     fig_overall_cfd.update_xaxes(tickformat="%d.%m.%Y")
     st.plotly_chart(fig_overall_cfd, use_container_width=True)
     
-    # Aggregiere BDC: Summe pro Datum
-    dfs = []
+    # Aggregiere BDC
+    dfs_bdc = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_BDC"].copy()
         df["Date"] = convert_date(df["Date"])
-        dfs.append(df)
-    df_overall_bdc = dfs[0].copy()
+        dfs_bdc.append(df)
+    df_overall_bdc = dfs_bdc[0].copy()
     for col in ["Ideal", "Actual"]:
-        df_overall_bdc[col] = sum(df[col] for df in dfs)
+        df_overall_bdc[col] = sum(df[col] for df in dfs_bdc)
     fig_overall_bdc = go.Figure()
     fig_overall_bdc.add_trace(go.Scatter(x=df_overall_bdc["Date"], y=df_overall_bdc["Ideal"],
                                          mode='lines',
@@ -327,19 +390,20 @@ with dept_tabs[3]:
                                          name='Actual Burndown',
                                          line=dict(color='red')))
     fig_overall_bdc.update_layout(title="Overall GRA – Burndown Chart (BDC)",
-                                  xaxis_title="Date", yaxis_title="Work Remaining (%)",
+                                  xaxis_title="Date",
+                                  yaxis_title="Work Remaining (%)",
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_bdc, use_container_width=True)
     
-    # Aggregiere BUC: Summe pro Datum
-    dfs = []
+    # Aggregiere BUC
+    dfs_buc = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_BUC"].copy()
         df["Date"] = convert_date(df["Date"])
-        dfs.append(df)
-    df_overall_buc = dfs[0].copy()
+        dfs_buc.append(df)
+    df_overall_buc = dfs_buc[0].copy()
     for col in ["Total Scope", "Completed"]:
-        df_overall_buc[col] = sum(df[col] for df in dfs)
+        df_overall_buc[col] = sum(df[col] for df in dfs_buc)
     fig_overall_buc = go.Figure()
     fig_overall_buc.add_trace(go.Scatter(x=df_overall_buc["Date"], y=df_overall_buc["Total Scope"],
                                          mode='lines',
@@ -350,7 +414,8 @@ with dept_tabs[3]:
                                          name='Completed',
                                          line=dict(color='orange')))
     fig_overall_buc.update_layout(title="Overall GRA – Burnup Chart (BUC)",
-                                  xaxis_title="Date", yaxis_title="Work Units",
+                                  xaxis_title="Date",
+                                  yaxis_title="Work Units",
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_buc, use_container_width=True)
     
@@ -367,12 +432,13 @@ with dept_tabs[3]:
                                          name='Forecast Cost',
                                          line=dict(dash='dash', color='gray')))
     fig_overall_eac.update_layout(title="Overall GRA – Estimate at Completion (EAC)",
-                                  xaxis_title="Date", yaxis_title="Cost (€)",
+                                  xaxis_title="Date",
+                                  yaxis_title="Cost (€)",
                                   xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_overall_eac, use_container_width=True)
     
     st.markdown("### Conclusion")
     st.markdown("""
     Die aggregierten Daten der Unterabteilungen werden hier zusammengeführt.
-    Änderungen im Data Editor (in der Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
+    Änderungen im Data Editor (Sidebar) wirken sich beim nächsten Rerun/Tabwechsel auf die Diagramme in den Abteilungstabs und der Overall-Ansicht aus.
     """)
