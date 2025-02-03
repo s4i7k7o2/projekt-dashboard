@@ -1,0 +1,50 @@
+import pandas as pd
+import numpy as np
+
+# --- CFD Data ---
+dates_cfd = pd.date_range(start="2025-01-01", periods=20)
+df_cfd = pd.DataFrame({
+    "Date": dates_cfd,
+    "Backlog": np.random.randint(50, 100, size=20),
+    "In Progress": np.random.randint(20, 70, size=20),
+    "Done": np.random.randint(10, 50, size=20)
+})
+
+# --- BDC Data (Burndown Chart) ---
+dates_bdc = pd.date_range(start="2025-02-01", periods=15)
+ideal = np.linspace(100, 0, 15)
+actual = ideal + np.random.normal(0, 5, 15)
+df_bdc = pd.DataFrame({
+    "Date": dates_bdc,
+    "Ideal": ideal,
+    "Actual": actual
+})
+
+# --- BUC Data (Burnup Chart) ---
+dates_buc = pd.date_range(start="2025-03-01", periods=15)
+total_scope = np.linspace(100, 130, 15)
+completed = np.linspace(0, 100, 15) + np.random.normal(0, 5, 15)
+df_buc = pd.DataFrame({
+    "Date": dates_buc,
+    "Total Scope": total_scope,
+    "Completed": completed
+})
+
+# --- EAC Data (Estimate at Completion) ---
+dates_eac = pd.date_range(start="2025-04-01", periods=15)
+actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
+forecast = actual_costs[-1] + np.linspace(0, 20000, 15)
+df_eac = pd.DataFrame({
+    "Date": dates_eac,
+    "Actual Cost": actual_costs,
+    "Forecast Cost": forecast
+})
+
+# --- Save to Excel ---
+with pd.ExcelWriter("project_data.xlsx") as writer:
+    df_cfd.to_excel(writer, sheet_name="CFD", index=False)
+    df_bdc.to_excel(writer, sheet_name="BDC", index=False)
+    df_buc.to_excel(writer, sheet_name="BUC", index=False)
+    df_eac.to_excel(writer, sheet_name="EAC", index=False)
+
+print("Excel file 'project_data.xlsx' created successfully!")
