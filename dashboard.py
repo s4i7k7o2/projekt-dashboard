@@ -1,10 +1,15 @@
 import streamlit as st
 import plotly.graph_objects as go
+import plotly.express as px
+import pandas as pd
+import numpy as np
 
-# Set wide layout for the dashboard
+# Set page configuration
 st.set_page_config(layout="wide")
 
-# Title and Introduction
+# ----------------------
+# Introduction and Definitions
+# ----------------------
 st.title("Project Performance Dashboard")
 
 st.header("Introduction")
@@ -17,34 +22,36 @@ An effective PSR will command the attention of project executives and decision m
 
 Unfortunately, PSRs are seldom read by project executives and are often shelved upon issuance.
 
-The underutilization of this project tool, which is intended to be a key to project success, is rooted in a multitude of reasons including:
+The underutilization of this project tool is rooted in several factors, including:
+- **Report content:** Common knowledge issues should be discussed in terms of the effectiveness of current mitigation measures while new issues must be clearly identified.
+- **Presentation of project data:** Effective data presentation is key to communicating performance.
+- **Timeliness:** In fast-moving projects, timely reports are crucial to mitigate risks.
 
-- **Report content:** Issues that are common knowledge to the project team (yesterday’s news) should be addressed in terms of how effective the current mitigation measures being employed to correct them are, while newly evolving issues should be clearly identified along with a discussion of potential mitigation measures to correct them.
-- **Presentation of project data:** The content of a PSR is paramount; however, the effectiveness and reach of the message lies in the presentation of the project performance data.
-- **Timeliness of PSRs:** The timeliness of publishing the PSR is vital in a fast-moving project environment. Timely decisions to mitigate project risks are critical to formulating a successful solution.
-
-This article will discuss the process of establishing an effective reporting system that ensures proactive project-status reporting and engagement of the project executive team to maximize the chances of project success.
+This article discusses establishing an effective reporting system to ensure proactive status reporting and executive engagement.
 """)
 
 st.header("Definitions")
 st.markdown("""
 **Schedule Performance Metric (SPM)**  
-This is an indicator of field progress versus planned progress. If the indicator falls within the green range, the project is on or ahead of schedule; if it falls within the yellow range, the project is starting to fall behind schedule; if it falls within the red range, the project is significantly behind schedule and warrants corrective action. The SPM is calculated as the ratio between the dollar amount earned and the dollar amount planned.
+Indicator of field progress versus planned progress. Green means on or ahead of schedule; yellow indicates potential delays; red signals significant delays requiring corrective action.
 
 **Cost Contingency Performance Metric (CCPM)**  
-This indicator compares contingency cost drawdown to project progress to date. If the indicator is in the green range, the remaining contingency cost is likely adequate; yellow indicates that closer monitoring is warranted; and red suggests that a quantitative risk analysis may be needed to determine additional contingency.
+Compares contingency cost drawdown to project progress. Green means remaining contingency is likely adequate; yellow suggests closer monitoring; red indicates possible inadequacy.
 
 **Safety Performance Metric (SPM)**  
-This metric compares the safety performance of the project to the industry national average. It is typically based on the Incident Rate (IR) as defined by OSHA.
+Compares project safety performance to the industry national average, typically based on OSHA’s Incident Rate (IR).
 
 **Quality Assurance Metric (QAM)**  
-The QAM assesses the contractor’s quality control program. It may focus on a single aspect or incorporate several aspects, such as the number of non-compliance notices issued relative to expectations.
+Assesses the contractor’s quality control program, often by comparing non-compliance notices or other quality indicators.
 """)
 
+# ----------------------
+# Performance Metrics Gauges
+# ----------------------
 st.header("Performance Metrics Gauges")
 st.markdown("The gauges below illustrate sample values for each performance metric category. In a real-world scenario, these values would be dynamically calculated based on project data.")
 
-# --- Schedule Performance Metric Gauge ---
+# Schedule Performance Metric Gauge
 fig_schedule = go.Figure(go.Indicator(
     mode="gauge+number+delta",
     value=75,  # sample value
@@ -66,7 +73,7 @@ fig_schedule = go.Figure(go.Indicator(
     }
 ))
 
-# --- Cost Contingency Performance Metric Gauge ---
+# Cost Contingency Performance Metric Gauge
 fig_cost = go.Figure(go.Indicator(
     mode="gauge+number+delta",
     value=65,  # sample value
@@ -88,7 +95,7 @@ fig_cost = go.Figure(go.Indicator(
     }
 ))
 
-# --- Safety Performance Metric Gauge ---
+# Safety Performance Metric Gauge
 fig_safety = go.Figure(go.Indicator(
     mode="gauge+number+delta",
     value=90,  # sample value
@@ -110,7 +117,7 @@ fig_safety = go.Figure(go.Indicator(
     }
 ))
 
-# --- Quality Assurance Metric Gauge ---
+# Quality Assurance Metric Gauge
 fig_quality = go.Figure(go.Indicator(
     mode="gauge+number+delta",
     value=80,  # sample value
@@ -141,7 +148,141 @@ with col2:
     st.plotly_chart(fig_safety, use_container_width=True)
     st.plotly_chart(fig_quality, use_container_width=True)
 
+# ----------------------
+# Additional Diagrams Section
+# ----------------------
+st.header("Additional Diagrams")
+
+# --- CFD: Cumulative Flow Diagram ---
+st.subheader("CFD (Cumulative Flow Diagram)")
+st.markdown("""
+**When Useful:**  
+- Particularly valuable in agile environments or ticket-driven processes to quickly identify bottlenecks in a specific phase.
+- **Tip:** When combined with WIP (Work In Progress) limits, bottlenecks can be managed more effectively.
+""")
+
+# Simulate data for CFD
+days = pd.date_range(start="2025-01-01", periods=20)
+backlog = np.random.randint(50, 100, size=20)
+in_progress = np.random.randint(20, 70, size=20)
+done = np.random.randint(10, 50, size=20)
+
+df_cfd = pd.DataFrame({
+    "Date": days,
+    "Backlog": backlog,
+    "In Progress": in_progress,
+    "Done": done
+})
+df_cfd = df_cfd.melt(id_vars=["Date"], value_vars=["Backlog", "In Progress", "Done"],
+                     var_name="Stage", value_name="Count")
+
+fig_cfd = px.area(df_cfd, x="Date", y="Count", color="Stage",
+                  title="Cumulative Flow Diagram")
+st.plotly_chart(fig_cfd, use_container_width=True)
+
+# --- BDC: Burndown Chart ---
+st.subheader("BDC (Burndown Chart)")
+st.markdown("""
+**When Useful:**  
+- In time-boxed sprints/iterations, to track daily progress.
+- **Tip:** Comparing the real burndown with the ideal (planned) line helps quickly spot deviations.
+""")
+
+# Simulate data for a burndown chart (ideal vs actual)
+days = pd.date_range(start="2025-02-01", periods=15)
+ideal = np.linspace(100, 0, 15)
+actual = ideal + np.random.normal(0, 5, 15)  # simulated slight deviations
+
+df_bdc = pd.DataFrame({
+    "Date": days,
+    "Ideal": ideal,
+    "Actual": actual
+})
+
+fig_bdc = go.Figure()
+fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Ideal"],
+                             mode='lines',
+                             name='Ideal Burndown',
+                             line=dict(dash='dash', color='green')))
+fig_bdc.add_trace(go.Scatter(x=df_bdc["Date"], y=df_bdc["Actual"],
+                             mode='lines+markers',
+                             name='Actual Burndown',
+                             line=dict(color='red')))
+fig_bdc.update_layout(title="Burndown Chart (BDC)",
+                      xaxis_title="Date",
+                      yaxis_title="Work Remaining (%)")
+st.plotly_chart(fig_bdc, use_container_width=True)
+
+# --- BUC: Burnup Chart ---
+st.subheader("BUC (Burnup Chart)")
+st.markdown("""
+**When Useful:**  
+- When there are frequent scope changes. It shows progress as well as whether the overall project scope has changed.
+- **Tip:** Ideal for project status meetings since it provides more information than a simple burndown, emphasizing “what is newly added.”
+""")
+
+# Simulate data for burnup chart
+days = pd.date_range(start="2025-03-01", periods=15)
+scope = np.linspace(100, 130, 15)  # scope can increase over time
+completed = np.linspace(0, 100, 15) + np.random.normal(0, 5, 15)
+
+df_buc = pd.DataFrame({
+    "Date": days,
+    "Total Scope": scope,
+    "Completed": completed
+})
+
+fig_buc = go.Figure()
+fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Total Scope"],
+                             mode='lines',
+                             name='Total Scope',
+                             line=dict(color='blue')))
+fig_buc.add_trace(go.Scatter(x=df_buc["Date"], y=df_buc["Completed"],
+                             mode='lines+markers',
+                             name='Completed Work',
+                             line=dict(color='orange')))
+fig_buc.update_layout(title="Burnup Chart (BUC)",
+                      xaxis_title="Date",
+                      yaxis_title="Work Units")
+st.plotly_chart(fig_buc, use_container_width=True)
+
+# --- EAC: Estimate at Completion ---
+st.subheader("EAC (Estimate at Completion)")
+st.markdown("""
+**When Useful:**  
+- When there are deviations in time or budget, to assess if corrective action is needed.
+- **Tip:** Incorporating EAC into an Earned Value Management (EVM) framework yields a more robust cost and performance analysis.
+""")
+
+# Simulate EAC data: actual costs over time with a forecast
+days = pd.date_range(start="2025-04-01", periods=15)
+actual_costs = np.linspace(0, 80000, 15) + np.random.normal(0, 2000, 15)
+forecast = actual_costs[-1] + np.linspace(0, 20000, 15)
+
+df_eac = pd.DataFrame({
+    "Date": days,
+    "Actual Cost": actual_costs,
+    "Forecast Cost": forecast
+})
+
+fig_eac = go.Figure()
+fig_eac.add_trace(go.Scatter(x=df_eac["Date"], y=df_eac["Actual Cost"],
+                             mode='lines+markers',
+                             name='Actual Cost',
+                             line=dict(color='purple')))
+fig_eac.add_trace(go.Scatter(x=df_eac["Date"], y=df_eac["Forecast Cost"],
+                             mode='lines+markers',
+                             name='Forecast Cost',
+                             line=dict(dash='dash', color='gray')))
+fig_eac.update_layout(title="Estimate at Completion (EAC)",
+                      xaxis_title="Date",
+                      yaxis_title="Cost (€)")
+st.plotly_chart(fig_eac, use_container_width=True)
+
+# ----------------------
+# Conclusion Section
+# ----------------------
 st.header("Conclusion")
 st.markdown("""
-In summary, using the PSR as a platform for regular performance presentations organized by the project control manager and headed by the project executive is an effective way to engage project executives and functional managers to address critical variances from the established project baselines that will likely impact the project outcomes. This approach can also be used to document the successful or unsuccessful results of mitigation measures and corrective actions over the course of the project life cycle, which is a very valuable benefit to any organization that endorses a continuous improvement process.
+In summary, using the PSR as a platform for regular performance presentations led by the project control manager and project executive is an effective method to engage decision makers. It helps address critical variances from the established baselines and documents the success or challenges of mitigation measures throughout the project lifecycle. The additional charts—CFD, BDC, BUC, and EAC—provide further insights that are essential for proactive project management and informed decision-making.
 """)
