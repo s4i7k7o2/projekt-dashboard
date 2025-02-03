@@ -22,7 +22,7 @@ def get_data_editor():
 data_editor = get_data_editor()
 
 def convert_date(date_series):
-    # Erwartet das Format DD.MM.YYYY und konvertiert in datetime
+    # Konvertiert Strings im Format DD.MM.YYYY in datetime
     return pd.to_datetime(date_series, format='%d.%m.%Y', dayfirst=True)
 
 # -------------------------------
@@ -76,7 +76,7 @@ if "EAC" not in st.session_state:
     st.session_state["EAC"] = default_eac()
 
 # -------------------------------
-# Basiswerte für Kennzahlen
+# Basiswerte für Kennzahlen (SPM, CCPM, Safety, QAM)
 # -------------------------------
 if "spm_value" not in st.session_state:
     st.session_state.spm_value = 75
@@ -103,19 +103,22 @@ selected_dept = st.sidebar.selectbox(
     options=["GRA-Overall", "Governance", "Risk", "Audit & Assessment"]
 )
 
+# Für "GRA-Overall" zeigen wir in der Sidebar einen Data Editor für die EAC-Daten.
 if selected_dept == "GRA-Overall":
     st.sidebar.markdown("### Data Editor für Overall – EAC Daten")
-    if data_editor is not None:
-        edited = data_editor(st.session_state["EAC"], num_rows="dynamic", key="EAC_editor")
-    else:
-        csv_text = st.text_area("EAC Daten (CSV)", value=st.session_state["EAC"].to_csv(index=False), key="EAC_csv")
-        try:
-            edited = pd.read_csv(io.StringIO(csv_text), sep=",")
-        except Exception as e:
-            st.error(f"Fehler beim Parsen: {e}")
-            edited = st.session_state["EAC"]
-    st.session_state["EAC"] = edited
+    with st.sidebar.expander("EAC Daten bearbeiten"):
+        if data_editor is not None:
+            edited_eac = data_editor(st.session_state["EAC"], num_rows="dynamic", key="EAC_editor")
+        else:
+            csv_text = st.text_area("EAC Daten (CSV)", value=st.session_state["EAC"].to_csv(index=False), key="EAC_csv")
+            try:
+                edited_eac = pd.read_csv(io.StringIO(csv_text), sep=",")
+            except Exception as e:
+                st.error(f"Fehler beim Parsen: {e}")
+                edited_eac = st.session_state["EAC"]
+        st.session_state["EAC"] = edited_eac
 else:
+    # Für die Unterabteilungen: Governance, Risk, Audit & Assessment
     dept_key = {"Governance": "Gov", "Risk": "Risk", "Audit & Assessment": "Audit"}[selected_dept]
     st.sidebar.markdown(f"### Data Editor für {selected_dept}")
     with st.sidebar.expander(f"{selected_dept} – CFD Daten"):
@@ -161,7 +164,7 @@ st.title(f"{selected_dept} Dashboard")
 
 def render_charts_for_dept(dept_key, dept_name, color_scheme):
     st.markdown(f"### {dept_name} – Kennzahlen und Diagramme")
-    # CFD – Verwende go.Figure mit Stackgroup, um die Daten korrekt zu stapeln
+    # CFD – Erstelle das Diagramm mithilfe von go.Figure und stackgroup für korrekte Darstellung
     df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
     df_cfd["Date"] = convert_date(df_cfd["Date"])
     df_cfd = df_cfd.sort_values("Date")
@@ -172,9 +175,9 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
         fig_cfd.add_trace(go.Scatter(
             x=df_cfd["Date"],
             y=df_cfd[col],
-            mode='lines',
+            mode="lines",
             name=stage,
-            stackgroup='one',
+            stackgroup="one",
             line=dict(color=trace_color)
         ))
     fig_cfd.update_layout(title=f"{dept_name} – Cumulative Flow Diagram (CFD)",
@@ -222,17 +225,16 @@ def render_charts_for_dept(dept_key, dept_name, color_scheme):
                           xaxis=dict(tickformat="%d.%m.%Y"))
     st.plotly_chart(fig_buc, use_container_width=True)
 
-# Falls "GRA-Overall" ausgewählt ist, werden die Daten aller Unterabteilungen aggregiert
+# Render der Diagramme je nach Auswahl
 if selected_dept == "GRA-Overall":
     st.markdown("### Overall GRA – Aggregierte Kennzahlen und Diagramme")
-    # Aggregiere CFD-Daten
+    # Aggregiere CFD-Daten aus allen drei Unterabteilungen
     dfs_cfd = []
     for dept in ["Gov", "Risk", "Audit"]:
         df = st.session_state[f"{dept}_CFD"].copy()
         df["Date"] = convert_date(df["Date"])
         dfs_cfd.append(df)
     df_overall_cfd = pd.concat(dfs_cfd).groupby("Date", as_index=False).sum()
-    # Erstelle den CFD mit Stackgroup
     fig_overall_cfd = go.Figure()
     for stage, col, trace_color in zip(["Backlog", "In Progress", "Done"],
                                        ["Backlog", "In Progress", "Done"],
@@ -240,9 +242,9 @@ if selected_dept == "GRA-Overall":
         fig_overall_cfd.add_trace(go.Scatter(
             x=df_overall_cfd["Date"],
             y=df_overall_cfd[col],
-            mode='lines',
+            mode="lines",
             name=stage,
-            stackgroup='one',
+            stackgroup="one",
             line=dict(color=trace_color)
         ))
     fig_overall_cfd.update_layout(title="Overall GRA – Cumulative Flow Diagram (CFD)",
@@ -329,7 +331,7 @@ else:
         df_cfd = st.session_state[f"{dept_key}_CFD"].copy()
         df_cfd["Date"] = convert_date(df_cfd["Date"])
         df_cfd = df_cfd.sort_values("Date")
-        # CFD mittels go.Figure und stackgroup
+        # Erstelle den CFD mit go.Figure und stackgroup
         fig_cfd = go.Figure()
         for stage, col, trace_color in zip(["Backlog", "In Progress", "Done"],
                                            ["Backlog", "In Progress", "Done"],
@@ -388,4 +390,3 @@ else:
         st.plotly_chart(fig_buc, use_container_width=True)
     
     render_charts_for_dept(dept_key, selected_dept, {"Governance": "blue", "Risk": "red", "Audit & Assessment": "green"}[selected_dept])
-
